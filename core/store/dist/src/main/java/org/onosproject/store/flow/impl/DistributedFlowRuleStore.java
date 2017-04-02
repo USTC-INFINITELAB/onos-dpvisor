@@ -67,6 +67,9 @@ package org.onosproject.store.flow.impl;
  import org.onosproject.net.flow.FlowRuleStoreDelegate;
  import org.onosproject.net.flow.StoredFlowEntry;
  import org.onosproject.net.flow.TableStatisticsEntry;
+ import org.onosproject.net.table.FlowTable;
+ import org.onosproject.net.table.FlowTableId;
+ import org.onosproject.net.table.FlowTableStore;
  import org.onosproject.persistence.PersistenceService;
  import org.onosproject.store.AbstractStore;
  import org.onosproject.store.cluster.messaging.ClusterCommunicationService;
@@ -169,6 +172,9 @@ public class DistributedFlowRuleStore
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected PersistenceService persistenceService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected FlowTableStore flowTableStore;
 
     private Map<Long, NodeId> pendingResponses = Maps.newConcurrentMap();
     private ExecutorService messageHandlingExecutor;
@@ -447,7 +453,17 @@ public class DistributedFlowRuleStore
         }
 
         if (Objects.equals(local, master)) {
-            storeBatchInternal(operation);
+            log.info("++++ judge whether this flowrule belongs to POF");
+            if (deviceId.uri().getScheme().equals("pof")) {
+                FlowRule flowRule = operation.getOperations().get(0).target();
+                FlowTable flowTable = flowTableStore.getFlowTableInternal(flowRule.deviceId(),
+                        FlowTableId.valueOf(flowRule.tableId()));
+                if (flowTable != null) {
+                    storeBatchInternal(operation);
+                }
+            } else {
+                storeBatchInternal(operation);
+            }
             return;
         }
 

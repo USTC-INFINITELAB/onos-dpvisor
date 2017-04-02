@@ -43,6 +43,7 @@
         <onos-build-conf.version>1.3</onos-build-conf.version>
         <netty4.version>4.1.5.Final</netty4.version>
         <openflowj.version>0.9.7.onos</openflowj.version>
+        <floodlightpof.version>1.0.1.onos</floodlightpof.version>
         <onos-maven-plugin.version>1.10</onos-maven-plugin.version>
         <osgi.version>5.0.0</osgi.version>
         <karaf.version>3.0.8</karaf.version>
@@ -349,6 +350,13 @@
                 <groupId>org.onosproject</groupId>
                 <artifactId>openflowj</artifactId>
                 <version>${openflowj.version}</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>com.github.ustc-infinitelab</groupId>
+                <artifactId>floodlightpof</artifactId>
+                <version>${floodlightpof.version}</version>
                 <scope>provided</scope>
             </dependency>
         </dependencies>

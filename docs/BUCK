@@ -143,6 +143,10 @@ internal_groups = [
   'org.onosproject.openflow.*',
   'org.onosproject.provider.of.*',
   ]),
+  ( 'POF Providers &amp; Controller', [
+  'org.onosproject.pof.*',
+  'org.onosproject.provider.pof.*',
+  ]),
   ( 'NetConf Protocol &amp; Providers', [
   'org.onosproject.netconf*',
   'org.onosproject.provider.netconf*',

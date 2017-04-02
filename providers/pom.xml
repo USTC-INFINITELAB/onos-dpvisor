@@ -52,6 +52,7 @@
         <module>link</module>
         <module>ietfte</module>
         <module>tl1</module>
+        <module>pof</module>
     </modules>
 
     <dependencies>

@@ -206,6 +206,13 @@
         <behaviour api="org.onosproject.net.behaviour.Pipeliner"
                    impl="org.onosproject.driver.pipeline.OpenVSwitchPipeline"/>
     </driver>
+    <driver name="POFSwitch"
+            manufacturer="Huawei. Inc" hwVersion="POF Switch" swVersion="1.4.5">
+        <behaviour api="org.onosproject.net.behaviour.Pipeliner"
+                   impl="org.onosproject.driver.pipeline.DefaultSingleTablePipeline"/>
+        <behaviour api="org.onosproject.pof.controller.driver.PofSwitchDriver"
+                   impl="org.onosproject.driver.handshaker.PofSwitchHandshaker"/>
+    </driver>
     <driver name="aos" extends="ofdpa"
             manufacturer="Accton" hwVersion=".*" swVersion="1.*">
     </driver>

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>onos-pof-providers</artifactId>
+        <groupId>org.onosproject</groupId>
+        <version>1.10.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>onos-pofproviders</artifactId>
+
+    <packaging>bundle</packaging>
+
+    <properties>
+        <onos.app.name>org.onosproject.pof</onos.app.name>
+        <onos.app.title>POF Meta App</onos.app.title>
+        <onos.app.category>Provider</onos.app.category>
+        <onos.app.requires>
+            org.onosproject.pof-base,
+            <!--org.onosproject.hostprovider,-->
+            org.onosproject.lldpprovider
+        </onos.app.requires>
+        <onos.app.url>
+            https://wiki.onosproject.org/display/ONOS/Application+Subsystem
+        </onos.app.url>
+    </properties>
+
+    <description>POF southbound meta application</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.onosproject</groupId>
+            <artifactId>onos-pof-api</artifactId>
+            <version>1.10.0-SNAPSHOT</version>
+        </dependency>
+    </dependencies>
+
+
+</project>

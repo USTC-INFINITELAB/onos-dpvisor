@@ -245,6 +245,8 @@ public final class DefaultTrafficTreatment implements TrafficTreatment {
                 case L2MODIFICATION:
                 case L3MODIFICATION:
                 case L4MODIFICATION:
+                case POFINSTRUCTION:
+                case POFACTION:
                 case EXTENSION:
                     current.add(instruction);
                     break;

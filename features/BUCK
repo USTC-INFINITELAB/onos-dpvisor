@@ -36,6 +36,7 @@ osgi_feature (
     '//lib:commons-io',
     '//lib:jersey-client',
     '//lib:mapdb',
+    '//lib:floodlightpof',
   ]
 )
 

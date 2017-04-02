@@ -32,6 +32,8 @@ import org.onosproject.net.OduSignalType;
 import org.onosproject.net.PortNumber;
 import org.onosproject.net.flow.criteria.Criterion.Type;
 
+import java.util.ArrayList;
+
 /**
  * Factory class to create various traffic selection criteria.
  */
@@ -632,6 +634,24 @@ public final class Criteria {
     public static ExtensionCriterion extension(ExtensionSelector extensionSelector,
                                       DeviceId deviceId) {
         return new ExtensionCriterion(extensionSelector, deviceId);
+    }
+
+    /**
+     * creates pof criterion.
+     * @return pof criterion
+     */
+
+    public static Criterion matchOffsetLength(short fieldId, short offset, short length,
+                                              String value, String mask) {
+        return new PofCriterion(fieldId, offset, length, value, mask);
+    }
+
+    /**
+     * creates pof criterion List.
+     * @return pof criterion
+     */
+    public static Criterion matchOffsetLength(ArrayList<Criterion> list) {
+        return new PofCriterion(list);
     }
 
     /**
