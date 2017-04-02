@@ -2,6 +2,8 @@ COMPILE_DEPS = [
     '//lib:CORE_DEPS',
     '//lib:openflowj',
     '//protocols/openflow/api:onos-protocols-openflow-api',
+    '//lib:floodlightpof',
+    '//protocols/pof/api:onos-protocols-pof-api',
     '//core/store/serializers:onos-core-serializers',
 ]
 
@@ -27,5 +29,7 @@ onos_app (
         ':onos-drivers-default',
         '//lib:openflowj',
         '//protocols/openflow/api:onos-protocols-openflow-api',
+        '//lib:floodlightpof',
+        '//protocols/pof/api:onos-protocols-pof-api',
     ]
 )

@@ -89,6 +89,12 @@ public interface Instruction {
         L4MODIFICATION,
 
         /**
+         * Signfies that an POF instruction will be used.
+         */
+        POFINSTRUCTION,
+        POFACTION,
+
+        /**
          * Signifies that an extension instruction will be used.
          */
         EXTENSION

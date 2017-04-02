@@ -1,0 +1,18 @@
+BUNDLES = [
+    '//lib:floodlightpof',
+    '//protocols/pof/api:onos-protocols-pof-api',
+    '//protocols/pof/ctl:onos-protocols-pof-ctl',
+    '//providers/pof/device:onos-providers-pof-device',
+    '//providers/pof/packet:onos-providers-pof-packet',
+    '//providers/pof/flow:onos-providers-pof-flow',
+    '//providers/pof/table:onos-providers-pof-table',
+]
+
+onos_app (
+    app_name = 'org.onosproject.pof-base',
+    title = 'POF Provider',
+    category = 'Provider',
+    url = 'http://onosproject.org',
+    description = 'POF protocol southbound providers.',
+    included_bundles = BUNDLES,
+)

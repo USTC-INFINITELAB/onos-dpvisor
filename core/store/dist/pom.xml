@@ -122,6 +122,11 @@
             <artifactId>netty-resolver</artifactId>
             <version>${netty4.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.github.ustc-infinitelab</groupId>
+            <artifactId>floodlightpof</artifactId>
+        </dependency>
+
     </dependencies>
 
 </project>

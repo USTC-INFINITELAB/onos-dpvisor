@@ -23,5 +23,8 @@
         <bundle>mvn:org.onosproject/openflowj/0.9.7.onos</bundle>
         <bundle>mvn:${project.groupId}/onos-of-api/${project.version}</bundle>
 
+        <bundle>mvn:com.github.ustc-infinitelab/floodlightpof/1.0.1.onos</bundle>
+        <bundle>mvn:org.onosproject/onos-pof-api/1.10.0-SNAPSHOT</bundle>
+
     </feature>
 </features>

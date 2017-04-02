@@ -46,6 +46,15 @@
             <groupId>org.onosproject</groupId>
             <artifactId>openflowj</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.onosproject</groupId>
+            <artifactId>onos-pof-api</artifactId>
+            <version>1.10.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.ustc-infinitelab</groupId>
+            <artifactId>floodlightpof</artifactId>
+        </dependency>
     </dependencies>
     <build>
         <plugins>

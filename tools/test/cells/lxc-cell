@@ -1,0 +1,9 @@
+export ONOS_NIC=192.168.109.*
+export OC1="192.168.109.15"
+export OC2="192.168.109.16"
+export OC3="192.168.109.17"
+export OCN="192.168.109.180"
+export ONOS_GROUP=ubuntu
+export ONOS_USER=ubuntu
+
+export ONOS_APPS="drivers,pof"

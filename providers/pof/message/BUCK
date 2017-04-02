@@ -1,0 +1,24 @@
+COMPILE_DEPS = [
+    '//lib:CORE_DEPS',
+    '//lib:floodlightpof',
+    '//protocols/pof/api:onos-protocols-pof-api',
+    '//apps/cpman/api:onos-apps-cpman-api',
+]
+
+BUNDLES = [
+    '//apps/cpman/api:onos-apps-cpman-api',
+    ':onos-providers-pof-message',
+]
+
+osgi_jar_with_tests (
+    deps = COMPILE_DEPS,
+)
+
+onos_app (
+    app_name = 'org.onosproject.pof-message',
+    title = 'Control Message Stats Provider',
+    category = 'Provider',
+    url = 'http://onosproject.org',
+    description = 'ONOS POF control message provider.',
+    included_bundles = BUNDLES,
+)

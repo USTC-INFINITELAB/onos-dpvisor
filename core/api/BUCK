@@ -1,5 +1,6 @@
 COMPILE_DEPS = [
     '//lib:COMPILE',
+    '//lib:floodlightpof',
     '//utils/misc:onlab-misc',
     '//utils/osgi:onlab-osgi',
     '//utils/rest:onlab-rest',

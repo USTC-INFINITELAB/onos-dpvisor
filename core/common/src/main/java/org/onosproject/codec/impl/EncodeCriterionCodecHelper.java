@@ -115,6 +115,7 @@ public final class EncodeCriterionCodecHelper {
         formatMap.put(Criterion.Type.DUMMY, new FormatDummyType());
         formatMap.put(Criterion.Type.ODU_SIGID, new FormatOduSignalId());
         formatMap.put(Criterion.Type.ODU_SIGTYPE, new FormatOduSignalType());
+        formatMap.put(Criterion.Type.POF, new FormatPofType());
         // Currently unimplemented
         formatMap.put(Criterion.Type.ARP_OP, new FormatUnknown());
         formatMap.put(Criterion.Type.ARP_SPA, new FormatUnknown());
@@ -433,6 +434,18 @@ public final class EncodeCriterionCodecHelper {
 
         }
     }
+
+    private class FormatPofType implements CriterionTypeFormatter {
+
+        @Override
+        public ObjectNode encodeCriterion(ObjectNode root, Criterion criterion) {
+            checkNotNull(criterion, "Criterion cannot be null");
+
+            return root.put(CriterionCodec.TYPE, criterion.type().toString());
+
+        }
+    }
+
 
     /**
      * Encodes a criterion into a JSON node.

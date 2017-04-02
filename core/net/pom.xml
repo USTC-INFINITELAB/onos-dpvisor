@@ -125,6 +125,10 @@
             <groupId>org.onosproject</groupId>
             <artifactId>onos-incubator-net</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.github.ustc-infinitelab</groupId>
+            <artifactId>floodlightpof</artifactId>
+        </dependency>
     </dependencies>
 
 </project>

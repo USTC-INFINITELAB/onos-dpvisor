@@ -1,5 +1,6 @@
 COMPILE_DEPS = [
     '//lib:CORE_DEPS',
+    '//lib:floodlightpof',
     '//core/common:onos-core-common',
     '//incubator/api:onos-incubator-api',
     '//utils/rest:onlab-rest',

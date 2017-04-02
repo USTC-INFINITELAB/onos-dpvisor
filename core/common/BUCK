@@ -1,5 +1,6 @@
 SRC_DEPS = [
     '//lib:CORE_DEPS',
+    '//lib:floodlightpof',
     '//incubator/api:onos-incubator-api',
     '//core/api:onos-api',
 ]

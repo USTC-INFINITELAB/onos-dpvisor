@@ -18,6 +18,9 @@ package org.onosproject.net.intent;
 import com.google.common.base.MoreObjects;
 import org.onlab.graph.Weight;
 import org.onosproject.core.GroupId;
+import org.onosproject.floodlightpof.protocol.OFMatch20;
+import org.onosproject.floodlightpof.protocol.table.OFFlowTable;
+import org.onosproject.floodlightpof.protocol.table.OFTableType;
 import org.onosproject.net.DefaultPath;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.ElementId;
@@ -37,6 +40,8 @@ import org.onosproject.net.flow.criteria.Criterion.Type;
 import org.onosproject.net.flow.instructions.Instruction;
 import org.onosproject.net.flow.instructions.Instructions;
 import org.onosproject.net.flow.instructions.Instructions.MetadataInstruction;
+import org.onosproject.net.table.FlowTable;
+import org.onosproject.net.table.FlowTableId;
 import org.onosproject.net.provider.ProviderId;
 import org.onosproject.net.topology.DefaultTopologyEdge;
 import org.onosproject.net.topology.DefaultTopologyVertex;
@@ -421,6 +426,97 @@ public class IntentTestsMocks {
         public FlowRuleExtPayLoad payLoad() {
             return payLoad;
         }
+    }
+
+    public static class MockFlowTable implements FlowTable {
+
+        DeviceId deviceId;
+        //    private final TableSelector selector;
+        OFFlowTable flowTable;
+        long created;
+        FlowTableId id;
+        Short appId;
+
+        public MockFlowTable(DeviceId deviceId, long tableId) {
+            this.deviceId = deviceId;
+            //this.flowTable = MockOFFlowTable((byte)tableId);
+
+            this.appId = (short) (FlowTableId.valueOf(tableId).value() >>> 48);
+            this.id = FlowTableId.valueOf(tableId);
+            this.created = System.currentTimeMillis();
+        }
+
+        public MockFlowTable(long tableId) {
+            this.deviceId = DeviceId.deviceId("pof:001");
+            //this.flowTable = MockOFFlowTable((byte)tableId);
+            this.appId = 0;
+            this.id = FlowTableId.valueOf(tableId);
+            this.created = System.currentTimeMillis();
+        }
+
+        public OFFlowTable mockOFFlowTable(byte smallTableId) {
+            OFMatch20 ofMatch20 = new OFMatch20();
+            ofMatch20.setFieldId((short) 0);
+            ofMatch20.setFieldName("Dmac");
+            ofMatch20.setOffset((short) 0);
+            ofMatch20.setLength((short) 48);
+
+            ArrayList<OFMatch20> match20List = new ArrayList<OFMatch20>();
+            match20List.add(ofMatch20);
+
+            OFFlowTable ofFlowTable = new OFFlowTable();
+            ofFlowTable.setTableId(smallTableId);
+            ofFlowTable.setTableName("FirstEntryTable");
+            ofFlowTable.setTableSize(128);
+            ofFlowTable.setTableType(OFTableType.OF_MM_TABLE);
+            ofFlowTable.setMatchFieldList(match20List);
+            return ofFlowTable;
+
+        }
+
+        @Override
+        public FlowTableId id() {
+            return id;
+        }
+
+        @Override
+        public short appId() {
+            return appId;
+        }
+
+        @Override
+        public DeviceId deviceId() {
+            return deviceId;
+        }
+
+        @Override
+        public OFFlowTable flowTable() {
+            return flowTable;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(deviceId, flowTable, id);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            final MockFlowTable other = (MockFlowTable) obj;
+            return Objects.equals(this.created, other.created) &&
+                    this.id == other.id;
+        }
+
+        @Override
+        public boolean exactMatch(FlowTable rule) {
+            return this.equals(rule);
+        }
+
     }
 
     public static class MockIntent extends Intent {
