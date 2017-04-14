@@ -382,7 +382,6 @@ public class NewDistributedFlowTableStore
         Map<FlowTableId, List<Integer>> tids = new ConcurrentHashMap<>();
         freeFlowEntryIds.putIfAbsent(deviceId, tids);
 
-        Map<Integer, FlowRule> fs = new ConcurrentHashMap<>();
         Map<FlowTableId, Map<Integer, FlowRule>> tfs = new ConcurrentHashMap<>();
         flowEntries.putIfAbsent(deviceId, tfs);
     }
@@ -423,48 +422,37 @@ public class NewDistributedFlowTableStore
         Map<OFTableType, Byte> noBaseMap = new ConcurrentHashMap<>();
         Map<OFTableType, List<Byte>> freeIDListMap = new ConcurrentHashMap<>();
 
-        try {
-            if (flowTableReourceMap == null) {
-                return;
-            }
-            for (byte tableType = 0; tableType < OFTableType.OF_MAX_TABLE_TYPE.getValue(); tableType++) {
-                tableResource = flowTableReourceMap.get(OFTableType.values()[ tableType ]);
-                noMap.put(OFTableType.values()[tableType], base);
-                noBaseMap.put(OFTableType.values()[tableType], base);
-                freeIDListMap.put(OFTableType.values()[tableType], new ArrayList<Byte>());
-                base += tableResource.getTableNum();
-            }
-
-            this.flowTableNoMap.put(deviceId, noMap);
-            this.flowTableNoBaseMap.put(deviceId, noBaseMap);
-            this.freeFlowTableIDListMap.put(deviceId, freeIDListMap);
-
-        } catch (Exception e) {
-            e.printStackTrace();
+        if (flowTableReourceMap == null) {
             return;
         }
+        for (byte tableType = 0; tableType < OFTableType.OF_MAX_TABLE_TYPE.getValue(); tableType++) {
+            tableResource = flowTableReourceMap.get(OFTableType.values()[ tableType ]);
+            noMap.put(OFTableType.values()[tableType], base);
+            noBaseMap.put(OFTableType.values()[tableType], base);
+            freeIDListMap.put(OFTableType.values()[tableType], new ArrayList<Byte>());
+            base += tableResource.getTableNum();
+        }
+        this.flowTableNoMap.put(deviceId, noMap);
+        this.flowTableNoBaseMap.put(deviceId, noBaseMap);
+        this.freeFlowTableIDListMap.put(deviceId, freeIDListMap);
     }
 
     @Override
     public int getNewGlobalFlowTableId(DeviceId deviceId, OFTableType tableType) {
         int newFlowTableID = -1;
 
-        try {
-            OFTableType ofTableType = tableType;
-            if (null == freeFlowTableIDListMap.get(deviceId)
-                    || null == freeFlowTableIDListMap.get(deviceId).get(ofTableType)
-                    || 0 == freeFlowTableIDListMap.get(deviceId).get(ofTableType).size()) {
+        OFTableType ofTableType = tableType;
+        if (null == freeFlowTableIDListMap.get(deviceId)
+                || null == freeFlowTableIDListMap.get(deviceId).get(ofTableType)
+                || 0 == freeFlowTableIDListMap.get(deviceId).get(ofTableType).size()) {
 
-                newFlowTableID = flowTableNoMap.get(deviceId).get(ofTableType);
-                flowTableNoMap.get(deviceId).replace(ofTableType, Byte.valueOf((byte) (newFlowTableID + 1)));
-                log.info("get new flow table id from flowTableNoMap: {}", newFlowTableID);
-            } else {
-                newFlowTableID = freeFlowTableIDListMap.get(deviceId).get(ofTableType).remove(0);
-                log.info("get new flow table id from freeFlowTableIDListMap: {}", newFlowTableID);
+            newFlowTableID = flowTableNoMap.get(deviceId).get(ofTableType);
+            flowTableNoMap.get(deviceId).replace(ofTableType, Byte.valueOf((byte) (newFlowTableID + 1)));
+            log.info("get new flow table id from flowTableNoMap: {}", newFlowTableID);
+        } else {
+            newFlowTableID = freeFlowTableIDListMap.get(deviceId).get(ofTableType).remove(0);
+            log.info("get new flow table id from freeFlowTableIDListMap: {}", newFlowTableID);
 
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
         }
 
         flowEntryCount.get(deviceId).putIfAbsent(FlowTableId.valueOf(newFlowTableID), 0);
@@ -515,25 +503,22 @@ public class NewDistributedFlowTableStore
     public int getNewFlowEntryId(DeviceId deviceId, int tableId) {
         int newFlowEntryId = -1;
         log.info("++++ getNewFlowEntryId1");
-        try {
-            if (null == freeFlowEntryIds.get(deviceId)
-                    || null == freeFlowEntryIds.get(deviceId).get(FlowTableId.valueOf(tableId))
-                    || 0 == freeFlowEntryIds.get(deviceId).get(FlowTableId.valueOf(tableId)).size()) {
 
-                log.info("++++ getNewFlowEntryId2");
-                newFlowEntryId = getFlowEntryCount(deviceId, FlowTableId.valueOf(tableId));
-                addFlowEntryCount(deviceId, FlowTableId.valueOf(tableId));
-                log.info("get new flow table id from flowEntryCount: {}", newFlowEntryId);
-                int tempNext = getFlowEntryCount(deviceId, FlowTableId.valueOf(tableId));
-                log.info("temp_next:{}", tempNext);
-            } else {
-                log.info("++++ getNewFlowEntryId3");
-                newFlowEntryId = freeFlowEntryIds.get(deviceId).get(FlowTableId.valueOf(tableId)).remove(0);
-                log.info("get new flow table id from freeFlowEntryIDListMap: {}", newFlowEntryId);
+        if (null == freeFlowEntryIds.get(deviceId)
+                || null == freeFlowEntryIds.get(deviceId).get(FlowTableId.valueOf(tableId))
+                || 0 == freeFlowEntryIds.get(deviceId).get(FlowTableId.valueOf(tableId)).size()) {
 
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
+            log.info("++++ getNewFlowEntryId2");
+            newFlowEntryId = getFlowEntryCount(deviceId, FlowTableId.valueOf(tableId));
+            addFlowEntryCount(deviceId, FlowTableId.valueOf(tableId));
+            log.info("get new flow table id from flowEntryCount: {}", newFlowEntryId);
+            int tempNext = getFlowEntryCount(deviceId, FlowTableId.valueOf(tableId));
+            log.info("temp_next:{}", tempNext);
+        } else {
+            log.info("++++ getNewFlowEntryId3");
+            newFlowEntryId = freeFlowEntryIds.get(deviceId).get(FlowTableId.valueOf(tableId)).remove(0);
+            log.info("get new flow table id from freeFlowEntryIDListMap: {}", newFlowEntryId);
+
         }
         return newFlowEntryId;
     }
@@ -561,6 +546,7 @@ public class NewDistributedFlowTableStore
     public void addFlowEntryCount(DeviceId deviceId, FlowTableId flowTableId) {
         Integer tmp = flowEntryCount.get(deviceId).get(flowTableId);
         flowEntryCount.get(deviceId).replace(flowTableId, tmp + 1);
+        log.info("++++addFlowEntryCount: {}", tmp + 1);
     }
 
     @Override
@@ -599,22 +585,11 @@ public class NewDistributedFlowTableStore
     public Map<Integer, FlowRule> getFlowEntries(DeviceId deviceId, FlowTableId flowTableId) {
         log.info("+++++ getFlowEntries by deviceId: {} and tableID: {}", deviceId, flowTableId.value());
 
-        for (FlowTableId id : flowEntries.get(deviceId).keySet()) {
-            if (flowTableId.value() == id.value()) {
-                log.info("+++++ get getFlowEntries, get table id");
-                flowTableId = id;
-            }
-        }
         if (flowEntries.get(deviceId).get(flowTableId) == null) {
             log.info("+++++ getFlowEntries by tableID: {} is null", flowTableId);
         }
         return getFlowEntries(deviceId).get(flowTableId);
     }
-
-//    @Override
-//    public void addFlowEntry(DeviceId deviceId, FlowTableId flowTableId, OFFlowMod ofFlowMod) {
-//        flowEntries.get(deviceId).get(flowTableId).put(ofFlowMod.getIndex(), ofFlowMod);
-//    }
 
     @Override
     public void addFlowEntry(DeviceId deviceId, FlowTableId flowTableId, FlowRule flowRule) {
@@ -1076,8 +1051,8 @@ public class NewDistributedFlowTableStore
             FlowTableId tableId = flowTableId;
             for (FlowTableId id: getFlowTables(deviceId).keySet()) {
                 if (flowTableId.value() == id.value()) {
-                    log.info("++++ get flowTable ID");
                     tableId = id;
+                    log.info("++++ get flowTable ID: {}", tableId.value());
                     break;
                 }
             }

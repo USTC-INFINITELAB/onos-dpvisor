@@ -38,7 +38,7 @@
         <module>ui</module>
         <module>uitab</module>
         <module>uitopo</module>
-    <module>pofapp-app</module>
+    <module>pof-test</module>
   </modules>
 
     <build>

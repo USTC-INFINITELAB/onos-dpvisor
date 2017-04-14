@@ -264,7 +264,7 @@ public class FlowTableManager
         for (FlowTable flowTable : flowTables) {
             if (store.getFlowEntries(flowTable.deviceId(), flowTable.id()) != null) {
                 for (FlowRule rule : store.getFlowEntries(flowTable.deviceId(), flowTable.id()).values()) {
-                    log.info("++++ removeFlowrule");
+                    log.info("++++ remove FlowRule with tableId: {}", flowTable.id().value());
                     flowRuleService.removeFlowRules(rule);
                 }
                 try {
@@ -278,7 +278,8 @@ public class FlowTableManager
             }
             builder.remove(flowTable);
         }
-        apply(builder.build());
+        FlowTableOperations ops = builder.build();
+        apply(ops);
     }
 
     @Override
