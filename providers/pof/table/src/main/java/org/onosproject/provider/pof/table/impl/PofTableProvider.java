@@ -350,7 +350,6 @@ public class PofTableProvider extends AbstractProvider
                             fbe.operator(), fbe);
                     continue;
             }
-//            log.info("++++ poftableprovider table: " + flowTable.toString());
             tablemod.setFlowTable(flowTable);
             tablemod.setType(OFType.TABLE_MOD);
             sw.sendMsg(tablemod);

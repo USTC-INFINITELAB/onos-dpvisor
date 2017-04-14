@@ -93,7 +93,7 @@ public class PofRuleProvider extends AbstractProvider
     protected DriverService driverService;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
-    protected FlowTableStore simpleFlowTableStore;
+    protected FlowTableStore flowTableStore;
 
     private static final int DEFAULT_POLL_FREQUENCY = 5;
     @Property(name = "flowPollFrequency", intValue = DEFAULT_POLL_FREQUENCY,
@@ -266,7 +266,7 @@ public class PofRuleProvider extends AbstractProvider
             return;
         }
         log.info("++++ sqy before ofMessage:");
-        OFMessage ofMessage = FlowModBuilder.builder(flowRule, sw.factory(), simpleFlowTableStore,
+        OFMessage ofMessage = FlowModBuilder.builder(flowRule, sw.factory(), flowTableStore,
                 Optional.empty(), Optional.of(driverService)).buildFlowAdd();
         log.info("++++ sqy ofMessage: " + ofMessage.toString());
 
@@ -308,7 +308,7 @@ public class PofRuleProvider extends AbstractProvider
             return;
         }
         log.info("++++ ++++++++++pofruleprovider; {}");
-        sw.sendMsg(FlowModBuilder.builder(flowRule, sw.factory(), simpleFlowTableStore,
+        sw.sendMsg(FlowModBuilder.builder(flowRule, sw.factory(), flowTableStore,
                 Optional.empty(), Optional.of(driverService)).buildFlowDel());
 
 //        DefaultFlowEntry flowEntry = (DefaultFlowEntry) flowRule;
@@ -354,7 +354,7 @@ public class PofRuleProvider extends AbstractProvider
             }
             log.info("+++++ before flowModBuilder");
             FlowModBuilder builder =
-                    FlowModBuilder.builder(fbe.target(), sw.factory(), simpleFlowTableStore,
+                    FlowModBuilder.builder(fbe.target(), sw.factory(), flowTableStore,
                             Optional.empty(), Optional.of(driverService));
 
 //            DefaultFlowEntry flowEntry = (DefaultFlowEntry) fbe.target();

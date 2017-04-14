@@ -60,7 +60,7 @@ public class FlowModBuilderVer20 extends FlowModBuilder {
     private FlowTable flowTable;
     private DeviceId deviceId;
     private int flowEntryId;
-    protected FlowTableStore simpleFlowTableStore;
+    protected FlowTableStore flowTableStore;
 
 //
     /**
@@ -72,7 +72,7 @@ public class FlowModBuilderVer20 extends FlowModBuilder {
      * @param driverService the device driver service
      */
     protected FlowModBuilderVer20(FlowRule flowRule, BasicFactory factory,
-                                  FlowTableStore simpleFlowTableStore,
+                                  FlowTableStore flowTableStore,
                                   Optional<Long> xid, Optional<DriverService> driverService) {
         super(flowRule, factory, xid, driverService);
 
@@ -81,8 +81,8 @@ public class FlowModBuilderVer20 extends FlowModBuilder {
         this.treatment = flowRule.treatment();
         this.deviceId = flowRule.deviceId();
         this.flowEntryId = (int) flowRule.id().value();
-        this.simpleFlowTableStore = simpleFlowTableStore;
-        FlowTable flowtable = simpleFlowTableStore.getFlowTableInternal(flowRule.deviceId(), FlowTableId
+        this.flowTableStore = flowTableStore;
+        FlowTable flowtable = flowTableStore.getFlowTableInternal(flowRule.deviceId(), FlowTableId
                 .valueOf(flowRule.tableId()));
         if (flowtable == null) {
             log.info("++++ flow table is null");
@@ -99,81 +99,66 @@ public class FlowModBuilderVer20 extends FlowModBuilder {
         OFTableType tableType = null;
 
         if (flowTable == null) {
-            log.info("++++ flow table is null");
+            log.error("++++ flow table is null");
         }
-        try {
-            tableType = flowTable.flowTable().getTableType();
-            if ((tableType == OFTableType.OF_LINEAR_TABLE && flowTable.flowTable()
-                    .getMatchFieldNum() != 0 && matchXList != null && matchXList.size() != 0)
-                    || (tableType != OFTableType.OF_LINEAR_TABLE && (flowTable.flowTable().getMatchFieldNum() == 0
-                    || matchXList == null || matchXList.size() != flowTable.flowTable().getMatchFieldNum()))
-                    || insList.size() == 0 || insList == null) {
-                //return FLOWENTRYID_INVALID;
-                log.error("ERROR in check table in buildFlowAdd1");
-                return null;
-            }
+        
+        tableType = flowTable.flowTable().getTableType();
+        if ((tableType == OFTableType.OF_LINEAR_TABLE && flowTable.flowTable()
+                .getMatchFieldNum() != 0 && matchXList != null && matchXList.size() != 0)
+                || (tableType != OFTableType.OF_LINEAR_TABLE && (flowTable.flowTable().getMatchFieldNum() == 0
+                || matchXList == null || matchXList.size() != flowTable.flowTable().getMatchFieldNum()))
+                || insList.size() == 0 || insList == null) {
+            //return FLOWENTRYID_INVALID;
+            log.error("ERROR in check table in buildFlowAdd1");
+            return null;
+        }
 
-            if (null != matchXList) {
-                int totalFiledLength = 0;
-                for (OFMatchX matchX : matchXList) {
-                    if (matchX == null) {
-                        log.error("ERROR in check table in buildFlowAdd2");
-                        return null;
-                    }
-                    log.info("OFMatchX: " + matchX.toString());
-                    totalFiledLength += matchX.getLength();
-                }
-                if (totalFiledLength != flowTable.flowTable().getKeyLength()) {
-                    log.error("ERROR in check table in buildFlowAdd3, totalFiledLength: {}, getKeyLength: {}",
-                            totalFiledLength, flowTable.flowTable().getKeyLength());
+        if (null != matchXList) {
+            int totalFiledLength = 0;
+            for (OFMatchX matchX : matchXList) {
+                if (matchX == null) {
+                    log.error("ERROR in check table in buildFlowAdd2");
                     return null;
                 }
+                log.info("OFMatchX: " + matchX.toString());
+                totalFiledLength += matchX.getLength();
             }
-
-            //add flow entry
-            return addFlowEntry(deviceId, flowTable.id(), matchXList, insList, (short) flowRule().priority(), true);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-
+            if (totalFiledLength != flowTable.flowTable().getKeyLength()) {
+                log.error("ERROR in check table in buildFlowAdd3, totalFiledLength: {}, getKeyLength: {}",
+                        totalFiledLength, flowTable.flowTable().getKeyLength());
+                return null;
+            }
         }
 
-        return null;
+        //add flow entry
+        return addFlowEntry(deviceId, flowTable.id(), matchXList, insList, (short) flowRule().priority(), true);
     }
 
     private OFFlowMod addFlowEntry(DeviceId deviceID, FlowTableId globalTableId,
                                    List<OFMatchX> matchList,
                                    List<OFInstruction> instructionList,
                                    short priority, boolean counterEnable) {
-        try {
 
-            log.info("buildver20.addflowentry");
-            OFTableType tableType = flowTable.flowTable().getTableType();
-            byte smallFlowTableId = simpleFlowTableStore.parseToSmallTableId(deviceID, (byte) globalTableId.value());
+        log.info("buildver20.addflowentry");
+        OFTableType tableType = flowTable.flowTable().getTableType();
+        byte smallFlowTableId = flowTableStore.parseToSmallTableId(deviceID, (byte) globalTableId.value());
 
-            OFFlowMod newFlowEntry = new OFFlowMod();
-            newFlowEntry.setTableId(smallFlowTableId);
-            newFlowEntry.setTableType(tableType);
-            newFlowEntry.setIndex(flowEntryId);
+        OFFlowMod newFlowEntry = new OFFlowMod();
+        newFlowEntry.setTableId(smallFlowTableId);
+        newFlowEntry.setTableType(tableType);
+        newFlowEntry.setIndex(flowEntryId);
 
-            newFlowEntry.setMatchFieldNum((byte) matchList.size());
-            newFlowEntry.setMatchList(matchList);
-            newFlowEntry.setInstructionNum((byte) instructionList.size());
-            newFlowEntry.setInstructionList(instructionList);
-            newFlowEntry.setPriority(priority);
-            newFlowEntry.setCommand((byte) OFFlowMod.OFFlowEntryCmd.OFPFC_ADD.ordinal());
-            newFlowEntry.setLengthU(OFFlowMod.MAXIMAL_LENGTH);
+        newFlowEntry.setMatchFieldNum((byte) matchList.size());
+        newFlowEntry.setMatchList(matchList);
+        newFlowEntry.setInstructionNum((byte) instructionList.size());
+        newFlowEntry.setInstructionList(instructionList);
+        newFlowEntry.setPriority(priority);
+        newFlowEntry.setCommand((byte) OFFlowMod.OFFlowEntryCmd.OFPFC_ADD.ordinal());
+        newFlowEntry.setLengthU(OFFlowMod.MAXIMAL_LENGTH);
 
-            simpleFlowTableStore.addFlowEntry(deviceID, flowTable.id(), this.flowRule);
-            log.info("buildver20. newflowentry:{}", newFlowEntry.toString());
-            return newFlowEntry;
-        } catch (Exception e) {
-            e.printStackTrace();
-
-        }
-
-        log.info("buildver20.addflowentry.return null");
-        return null;
+        flowTableStore.addFlowEntry(deviceID, flowTable.id(), this.flowRule);
+        log.info("buildver20. newflowentry:{}", newFlowEntry.toString());
+        return newFlowEntry;
     }
 
     @Override
@@ -181,123 +166,95 @@ public class FlowModBuilderVer20 extends FlowModBuilder {
         List<OFMatchX> matchXList = buildMatch();
         List<OFInstruction> insList = buildInstruction();
 
-        OFTableType tableType = null;
-        try {
-            tableType = flowTable.flowTable().getTableType();
+        OFTableType tableType;
+        tableType = flowTable.flowTable().getTableType();
 
-            if ((tableType == OFTableType.OF_LINEAR_TABLE && flowTable.flowTable().getMatchFieldNum() != 0
-                    && matchXList != null && matchXList.size() != 0) || (tableType != OFTableType.OF_LINEAR_TABLE
-                    && (flowTable.flowTable().getMatchFieldNum() == 0 || matchXList == null
-                    || matchXList.size() != flowTable.flowTable()
-                    .getMatchFieldNum())) || insList.size() == 0 || insList == null) {
-                //return FLOWENTRYID_INVALID;
-                log.error("ERROR in check table in buildFlowAdd4");
-                return null;
-            }
+        if ((tableType == OFTableType.OF_LINEAR_TABLE && flowTable.flowTable().getMatchFieldNum() != 0
+                && matchXList != null && matchXList.size() != 0) || (tableType != OFTableType.OF_LINEAR_TABLE
+                && (flowTable.flowTable().getMatchFieldNum() == 0 || matchXList == null
+                || matchXList.size() != flowTable.flowTable()
+                .getMatchFieldNum())) || insList.size() == 0 || insList == null) {
+            //return FLOWENTRYID_INVALID;
+            log.error("ERROR in check table in buildFlowAdd4");
+            return null;
+        }
 
-            if (null != matchXList) {
-                int totalFiledLength = 0;
-                for (OFMatchX matchX : matchXList) {
-                    if (matchX == null) {
-                        log.error("ERROR in check table in buildFlowAdd5");
-                        return null;
-                    }
-                    totalFiledLength += matchX.getLength();
-                }
-                if (totalFiledLength != flowTable.flowTable().getKeyLength()) {
-                    log.error("ERROR in check table in buildFlowAdd6");
+        if (null != matchXList) {
+            int totalFiledLength = 0;
+            for (OFMatchX matchX : matchXList) {
+                if (matchX == null) {
+                    log.error("ERROR in check table in buildFlowAdd5");
                     return null;
                 }
+                totalFiledLength += matchX.getLength();
             }
-
-            //mod flow entry
-            return modFlowEntry(deviceId, (int) flowRule()
-                    .id().value(), matchXList, insList, (short) flowRule().priority(), true);
-
-        } catch (Exception e) {
-            e.printStackTrace();
+            if (totalFiledLength != flowTable.flowTable().getKeyLength()) {
+                log.error("ERROR in check table in buildFlowAdd6");
+                return null;
+            }
         }
-        return null;
+
+        //mod flow entry
+        return modFlowEntry(deviceId, (int) flowRule()
+                .id().value(), matchXList, insList, (short) flowRule().priority(), true);
+
     }
 
     private OFFlowMod modFlowEntry(DeviceId deviceID, int flowEntryID,
                                    List<OFMatchX> matchList,
                                    List<OFInstruction> instructionList,
                                    short priority, boolean counterEnable) {
-        try {
-
-            FlowRule oldFlowEntry = simpleFlowTableStore.getFlowEntries(deviceID, flowTable.id())
-                    .get(flowEntryID);
+        FlowRule oldFlowEntry = flowTableStore.getFlowEntries(deviceID, flowTable.id())
+                .get(flowEntryID);
 
 
-            OFFlowMod oldFlowMod = new OFFlowMod();
-            oldFlowMod.setTableId((byte) oldFlowEntry.tableId());
-            oldFlowMod.setTableType(flowTable.flowTable().getTableType());
-            oldFlowMod.setIndex(flowEntryID);
+        OFFlowMod oldFlowMod = new OFFlowMod();
+        oldFlowMod.setTableId((byte) oldFlowEntry.tableId());
+        oldFlowMod.setTableType(flowTable.flowTable().getTableType());
+        oldFlowMod.setIndex(flowEntryID);
 
-            oldFlowMod.setLengthU(OFFlowMod.MAXIMAL_LENGTH);
+        oldFlowMod.setLengthU(OFFlowMod.MAXIMAL_LENGTH);
 
-            oldFlowMod.setMatchFieldNum((byte) matchList.size());
-            oldFlowMod.setMatchList(matchList);
-            oldFlowMod.setInstructionNum((byte) instructionList.size());
-            oldFlowMod.setInstructionList(instructionList);
-            oldFlowMod.setPriority(priority);
-            oldFlowMod.setCommand((byte) OFFlowMod.OFFlowEntryCmd.OFPFC_MODIFY.ordinal());
+        oldFlowMod.setMatchFieldNum((byte) matchList.size());
+        oldFlowMod.setMatchList(matchList);
+        oldFlowMod.setInstructionNum((byte) instructionList.size());
+        oldFlowMod.setInstructionList(instructionList);
+        oldFlowMod.setPriority(priority);
+        oldFlowMod.setCommand((byte) OFFlowMod.OFFlowEntryCmd.OFPFC_MODIFY.ordinal());
 
-            simpleFlowTableStore.modifyFlowEntry(deviceID, flowTable.id(), oldFlowEntry);
+        flowTableStore.modifyFlowEntry(deviceID, flowTable.id(), oldFlowEntry);
 
-            return oldFlowMod;
-        } catch (Exception e) {
-            e.printStackTrace();
-
-        }
-
-        return null;
+        return oldFlowMod;
     }
 
     @Override
     public OFFlowMod buildFlowDel() {
 
-
-        try {
-            //del flow entry
-            log.info("delFlowEntry : {}", deviceId.toString());
-            log.info("delFlowEntry : {}", flowTable.id().value());
-            log.info("delFlowEntry : {}", flowRule().id().value());
-            return delFlowEntry(deviceId, (int) flowRule().id().value());
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        log.info("no flow to delete");
-        return null;
+        //del flow entry
+        log.info("delFlowEntry : {}", deviceId.toString());
+        log.info("delFlowEntry : {}", flowTable.id().value());
+        log.info("delFlowEntry : {}", flowRule().id().value());
+        return delFlowEntry(deviceId, (int) flowRule().id().value());
     }
 
 
     private OFFlowMod delFlowEntry(DeviceId deviceID, int flowEntryID) {
-        try {
 
-            log.info("delFlowEntry deviceId: {}, Table ID: {}, entry ID: {}", deviceID, flowTable
-                    .id(), flowEntryID);
+        log.info("delFlowEntry deviceId: {}, Table ID: {}, entry ID: {}", deviceID, flowTable
+                .id(), flowEntryID);
 
-            FlowRule oldFlowEntry = simpleFlowTableStore.getFlowEntries(deviceID, flowTable.id())
-                    .get(flowEntryID);
+        FlowRule oldFlowEntry = flowTableStore.getFlowEntries(deviceID, flowTable.id())
+                .get(flowEntryID);
 
-            OFFlowMod oldFlowMod = new OFFlowMod();
-            oldFlowMod.setTableId((byte) oldFlowEntry.tableId());
-            oldFlowMod.setTableType(flowTable.flowTable().getTableType());
-            oldFlowMod.setIndex(flowEntryID);
-            oldFlowMod.setLengthU(OFFlowMod.MAXIMAL_LENGTH);
-            oldFlowMod.setCommand((byte) OFFlowMod.OFFlowEntryCmd.OFPFC_DELETE.ordinal());
+        OFFlowMod oldFlowMod = new OFFlowMod();
+        oldFlowMod.setTableId((byte) oldFlowEntry.tableId());
+        oldFlowMod.setTableType(flowTable.flowTable().getTableType());
+        oldFlowMod.setIndex(flowEntryID);
+        oldFlowMod.setLengthU(OFFlowMod.MAXIMAL_LENGTH);
+        oldFlowMod.setCommand((byte) OFFlowMod.OFFlowEntryCmd.OFPFC_DELETE.ordinal());
 
-            simpleFlowTableStore.deleteFlowEntry(deviceID, flowTable.id(), flowEntryID);
-            return oldFlowMod;
-        } catch (Exception e) {
-            e.printStackTrace();
-
-        }
-
-        return null;
+        flowTableStore.deleteFlowEntry(deviceID, flowTable.id(), flowEntryID);
+        return oldFlowMod;
     }
     /**
      * To MatchX.
