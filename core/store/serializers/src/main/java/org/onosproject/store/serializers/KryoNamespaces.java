@@ -227,6 +227,17 @@ import org.onosproject.store.service.Versioned;
 import org.onosproject.store.service.WorkQueueStats;
 import org.onosproject.ui.model.topo.UiTopoLayoutId;
 
+import org.onosproject.net.flow.instructions.PofAction;
+import org.onosproject.net.flow.instructions.PofInstruction;
+import org.onosproject.net.flow.criteria.PofCriterion;
+import org.onosproject.net.flow.instructions.DefaultPofActions;
+import org.onosproject.net.flow.instructions.DefaultPofInstructions;
+import org.onosproject.floodlightpof.protocol.instruction.OFInstructionApplyActions;
+import org.onosproject.floodlightpof.protocol.action.OFAction;
+import org.onosproject.floodlightpof.protocol.action.OFActionOutput;
+import org.onosproject.floodlightpof.protocol.action.OFActionType;
+import org.onosproject.floodlightpof.protocol.instruction.OFInstructionType;
+
 import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -572,6 +583,26 @@ public final class KryoNamespaces {
             .register(MarkerResource.class)
             .register(new BitSetSerializer(), BitSet.class)
             .build("API");
+
+    /**
+     * KryoNamespace which can serialize pof protocol classes.
+     */
+    // TODO: add some other pof protocol classes for pof flow table and flow entry serialization.
+    public static final int POF_MAX_SIZE = 549;
+    public static final KryoNamespace POF = KryoNamespace.newBuilder()
+            .register(API)
+            .register(PofCriterion.class)
+            .register(PofAction.class)
+            .register(DefaultPofActions.class)
+            .register(DefaultPofActions.PofActionOutput.class)
+            .register(PofInstruction.class)
+            .register(DefaultPofInstructions.PofInstructionApplyActions.class)
+            .register(OFInstructionApplyActions.class)
+            .register(OFAction.class)
+            .register(OFActionOutput.class)
+            .register(OFActionType.class)
+            .register(OFInstructionType.class)
+            .build();
 
     /**
      * Kryo registration Id for user custom registration.

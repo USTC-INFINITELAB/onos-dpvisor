@@ -191,10 +191,10 @@ public class DistributedFlowRuleStore
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected StorageService storageService;
 
-    protected final Serializer serializer = Serializer.using(KryoNamespaces.API);
+    protected final Serializer serializer = Serializer.using(KryoNamespaces.POF);
 
     protected final KryoNamespace.Builder serializerBuilder = KryoNamespace.newBuilder()
-            .register(KryoNamespaces.API)
+            .register(KryoNamespaces.POF)
             .register(MastershipBasedTimestamp.class);
 
 
