@@ -108,7 +108,7 @@
     "easymock": "mvn:org.easymock:easymock:3.4",
     "antlr": "mvn:antlr:antlr:2.7.7",
     "error_prone_annotations": "mvn:com.google.errorprone:error_prone_annotations:2.0.11",
-    "floodlightpof":"mvn:com.github.ustc-infinitelab:floodlightpof:1.0.1.onos",
+    "floodlightpof": "mvn:com.github.ustc-infinitelab:floodlightpof:1.0.1.onos",
     "ganymed-ssh2": "mvn:ch.ethz.ganymed:ganymed-ssh2:262",
     "gmetric4j": "mvn:info.ganglia.gmetric4j:gmetric4j:1.0.10",
     "gson": "mvn:com.google.code.gson:gson:jar:2.6.2",

@@ -292,15 +292,6 @@ remote_jar (
 )
 
 remote_jar (
-  name = 'floodlightpof',
-  out = 'floodlightpof-1.0.1.onos.jar',
-  url = 'mvn:com.github.ustc-infinitelab:floodlightpof:jar:1.0.1.onos',
-  sha1 = '48aaa3c0a664ff165ae9d20a14b841233e498aea',
-  maven_coords = 'com.github.ustc-infinitelab:floodlightpof:1.0.1.onos',
-  visibility = [ 'PUBLIC' ],
-)
-
-remote_jar (
   name = 'ganymed-ssh2',
   out = 'ganymed-ssh2-262.jar',
   url = 'mvn:ch.ethz.ganymed:ganymed-ssh2:jar:262',
