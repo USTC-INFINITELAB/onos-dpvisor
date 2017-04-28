@@ -40,6 +40,8 @@ import org.onosproject.floodlightpof.protocol.table.OFTableResource;
 import org.onosproject.floodlightpof.protocol.table.OFTableType;
 import org.onosproject.mastership.MastershipService;
 import org.onosproject.net.DeviceId;
+import org.onosproject.net.DeviceOFTableType;
+import org.onosproject.net.DeviceTableId;
 import org.onosproject.net.device.DeviceService;
 import org.onosproject.net.flow.FlowRule;
 import org.onosproject.net.flow.TableStatisticsEntry;
@@ -121,6 +123,8 @@ public class NewDistributedFlowTableStore
     private static final boolean DEFAULT_PERSISTENCE_ENABLED = false;
     private static final int DEFAULT_BACKUP_PERIOD_MILLIS = 2000;
     private static final long FLOW_TABLE_STORE_TIMEOUT_MILLIS = 5000;
+    private static final long GET_NEW_GLOBALTABLEID_TIMEOUT_MILLIS = 5000;
+    private static final long GET_NEW_FLOWENTRYID_TIMEOUT_MILLIS = 5000;
     // number of devices whose flow entries will be backed up in one communication round
     private static final int FLOW_TABLE_BACKUP_BATCH_SIZE = 1;
 
@@ -352,6 +356,12 @@ public class NewDistributedFlowTableStore
                 REMOVE_FLOW_TABLE, SERIALIZER::decode, this::removeFlowTableInternal, SERIALIZER::encode, executor);
         clusterCommunicator.addSubscriber(
                 FLOW_TABLE_BACKUP, SERIALIZER::decode, flowTable::onBackupReceipt, SERIALIZER::encode, executor);
+        clusterCommunicator.addSubscriber(
+                GET_NEW_GLOBAL_TABLEID, SERIALIZER::decode, flowTable::getGlobalFlowTableId,
+                SERIALIZER::encode, executor);
+        clusterCommunicator.addSubscriber(
+                GET_NEW_GLOBAL_ENTRYID, SERIALIZER::decode, flowTable::getFlowEntryId,
+                SERIALIZER::encode, executor);
     }
 
     private void unregisterMessageHandlers() {
@@ -361,6 +371,8 @@ public class NewDistributedFlowTableStore
         clusterCommunicator.removeSubscriber(APPLY_BATCH_TABLES);
         clusterCommunicator.removeSubscriber(REMOTE_APPLY_COMPLETED);
         clusterCommunicator.removeSubscriber(FLOW_TABLE_BACKUP);
+        clusterCommunicator.removeSubscriber(GET_NEW_GLOBAL_TABLEID);
+        clusterCommunicator.removeSubscriber(GET_NEW_GLOBAL_ENTRYID);
     }
 
     private void logConfig(String prefix) {
@@ -672,6 +684,56 @@ public class NewDistributedFlowTableStore
                 TimeUnit.MILLISECONDS,
                 Collections.emptyList());
     }
+    @Override
+    public int getGlobalTableId(DeviceOFTableType deviceOFTableType) {
+        NodeId master = mastershipService.getMasterFor(deviceOFTableType.deviceId);
+
+        if (master == null) {
+            log.debug("Failed to getGlobalTableId: No master for {}", deviceOFTableType.deviceId);
+            return -1;
+        }
+
+        if (Objects.equals(local, master)) {
+            return flowTable.getGlobalFlowTableId(deviceOFTableType);
+        }
+        log.info("@niubin getGlobalTableId forward");
+
+        log.trace("Forwarding getGlobalTableId to {},which is the primary(master) for device {}",
+                  master, deviceOFTableType.deviceId);
+        return Tools.futureGetOrElse(clusterCommunicator.sendAndReceive(deviceOFTableType,
+                FlowTableStoreMessageSubjects.GET_NEW_GLOBAL_TABLEID,
+                SERIALIZER::encode,
+                SERIALIZER::decode,
+                master),
+                GET_NEW_GLOBALTABLEID_TIMEOUT_MILLIS,
+                TimeUnit.MILLISECONDS,
+                0);
+    }
+    @Override
+    public int getFlowEntryId(DeviceTableId deviceTableId) {
+        NodeId master = mastershipService.getMasterFor(deviceTableId.deviceId);
+        if (master == null) {
+            log.debug("Failed to getFLowEntryID: no master for {}", deviceTableId.deviceId);
+            return -1;
+        }
+
+        if (Objects.equals(local, master)) {
+            return flowTable.getFlowEntryId(deviceTableId);
+        }
+        log.info("@niubin getFlowEntryId forward");
+
+        log.trace("Forwarding getFlowEntryId to {}, which is the primary(master) for device {}",
+                  master, deviceTableId.deviceId);
+        return Tools.futureGetOrElse(clusterCommunicator.sendAndReceive(deviceTableId,
+                FlowTableStoreMessageSubjects.GET_NEW_GLOBAL_ENTRYID,
+                SERIALIZER::encode,
+                SERIALIZER::decode,
+                master),
+                GET_NEW_FLOWENTRYID_TIMEOUT_MILLIS,
+                TimeUnit.MILLISECONDS,
+                0);
+    }
+
 
     @Override
     public void storeFlowTable(FlowTable table) {
@@ -932,6 +994,67 @@ public class NewDistributedFlowTableStore
     }
 
     private class InternalFlowTable implements ReplicaInfoEventListener {
+
+        public int getGlobalFlowTableId(DeviceOFTableType deviceOFTableType) {
+            int newFlowTableID = -1;
+            OFTableType tableType = deviceOFTableType.ofTableType;
+            DeviceId deviceId = deviceOFTableType.deviceId;
+
+            try {
+                OFTableType ofTableType = tableType;
+                log.info("@niubin getGlobalFlowTableIOFTableType getglobaltableid");
+                if (null == freeFlowTableIDListMap.get(deviceId)
+                        || null == freeFlowTableIDListMap.get(deviceId).get(ofTableType)
+                        || 0 == freeFlowTableIDListMap.get(deviceId).get(ofTableType).size()) {
+
+                    newFlowTableID = flowTableNoMap.get(deviceId).get(ofTableType);
+                    flowTableNoMap.get(deviceId).replace(ofTableType, Byte.valueOf((byte) (newFlowTableID + 1)));
+                    log.info("get new flow table id from flowTableNoMap: {}", newFlowTableID);
+                } else {
+                    newFlowTableID = freeFlowTableIDListMap.get(deviceId).get(ofTableType).remove(0);
+                    log.info("get new flow table id from freeFlowTableIDListMap: {}", newFlowTableID);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            log.info("@niubin getGlobalTableId internal");
+            flowEntryCount.get(deviceId).putIfAbsent(FlowTableId.valueOf(newFlowTableID), 0);
+            List<Integer> ids = new ArrayList<>();
+            freeFlowEntryIds.get(deviceId).putIfAbsent(FlowTableId.valueOf(newFlowTableID), ids);
+            Map<Integer, FlowRule> fs = new ConcurrentHashMap<>();
+            flowEntries.get(deviceId).putIfAbsent(FlowTableId.valueOf(newFlowTableID), fs);
+
+            return newFlowTableID;
+        }
+
+        public int getFlowEntryId(DeviceTableId deviceTableId) {
+            int newFlowEntryId = -1;
+            log.info("++++ getNewFlowEntryId1");
+            DeviceId deviceId = deviceTableId.deviceId;
+            int tableId = deviceTableId.tableid;
+            try {
+                if (null == freeFlowEntryIds.get(deviceId)
+                        || null == freeFlowEntryIds.get(deviceId).get(FlowTableId.valueOf(tableId))
+                        || 0 == freeFlowEntryIds.get(deviceId).get(FlowTableId.valueOf(tableId)).size()) {
+
+                    log.info("++++ getNewFlowEntryId2");
+                    log.info("tableid is {}" + FlowTableId.valueOf(tableId));
+                    newFlowEntryId = getFlowEntryCount(deviceId, FlowTableId.valueOf(tableId));
+                    addFlowEntryCount(deviceId, FlowTableId.valueOf(tableId));
+                    log.info("get new flow table id from flowEntryCount: {}", newFlowEntryId);
+                    int tempNext = getFlowEntryCount(deviceId, FlowTableId.valueOf(tableId));
+                    log.info("temp_next:{}", tempNext);
+                } else {
+                    log.info("++++ getNewFlowEntryId3");
+                    newFlowEntryId = freeFlowEntryIds.get(deviceId).get(FlowTableId.valueOf(tableId)).remove(0);
+                    log.info("get new flow table id from freeFlowEntryIDListMap: {}", newFlowEntryId);
+
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            return newFlowEntryId;
+        }
 
         //TODO replace the Map<V,V> with ExtendedSet
 

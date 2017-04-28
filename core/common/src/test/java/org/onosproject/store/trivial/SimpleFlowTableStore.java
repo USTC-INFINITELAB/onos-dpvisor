@@ -34,6 +34,8 @@ import org.onosproject.floodlightpof.protocol.table.OFFlowTableResource;
 import org.onosproject.floodlightpof.protocol.table.OFTableResource;
 import org.onosproject.floodlightpof.protocol.table.OFTableType;
 import org.onosproject.net.DeviceId;
+import org.onosproject.net.DeviceOFTableType;
+import org.onosproject.net.DeviceTableId;
 import org.onosproject.net.flow.FlowRule;
 import org.onosproject.net.flow.TableStatisticsEntry;
 import org.onosproject.net.table.CompletedTableBatchOperation;
@@ -187,6 +189,11 @@ public class SimpleFlowTableStore
     }
 
     @Override
+    public int getFlowEntryId(DeviceTableId deviceTableId) {
+        return 0;
+    }
+
+    @Override
     public void removeSwitchStore(DeviceId deviceId) {
 
         log.info("removeSwitchStore for device: {}", deviceId);
@@ -289,6 +296,36 @@ public class SimpleFlowTableStore
 
         try {
             OFTableType ofTableType = tableType;
+            if (null == freeFlowTableIDListMap.get(deviceId)
+                    || null == freeFlowTableIDListMap.get(deviceId).get(ofTableType)
+                    || 0 == freeFlowTableIDListMap.get(deviceId).get(ofTableType).size()) {
+
+                newFlowTableID = flowTableNoMap.get(deviceId).get(ofTableType);
+                flowTableNoMap.get(deviceId).replace(ofTableType, Byte.valueOf((byte) (newFlowTableID + 1)));
+                log.info("get new flow table id from flowTableNoMap: {}", newFlowTableID);
+            } else {
+                newFlowTableID = freeFlowTableIDListMap.get(deviceId).get(ofTableType).remove(0);
+                log.info("get new flow table id from freeFlowTableIDListMap: {}", newFlowTableID);
+
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        flowEntryCount.get(deviceId).putIfAbsent(FlowTableId.valueOf(newFlowTableID), 0);
+        List<Integer> ids = new ArrayList<>();
+        freeFlowEntryIds.get(deviceId).putIfAbsent(FlowTableId.valueOf(newFlowTableID), ids);
+        Map<Integer, FlowRule> fs = new ConcurrentHashMap<>();
+        flowEntries.get(deviceId).putIfAbsent(FlowTableId.valueOf(newFlowTableID), fs);
+
+        return newFlowTableID;
+    }
+    public int getGlobalTableId(DeviceOFTableType deviceOFTableType) {
+        int newFlowTableID = -1;
+        DeviceId deviceId = deviceOFTableType.deviceId;
+        OFTableType ofTableType = deviceOFTableType.ofTableType;
+        try {
+
             if (null == freeFlowTableIDListMap.get(deviceId)
                     || null == freeFlowTableIDListMap.get(deviceId).get(ofTableType)
                     || 0 == freeFlowTableIDListMap.get(deviceId).get(ofTableType).size()) {

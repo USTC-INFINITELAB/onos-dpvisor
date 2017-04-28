@@ -15,6 +15,27 @@
  */
 package org.onosproject.store.serializers.custom;
 
+import org.onosproject.floodlightpof.protocol.OFMatch;
+import org.onosproject.floodlightpof.protocol.OFMatch20;
+import org.onosproject.floodlightpof.protocol.action.OFAction;
+import org.onosproject.floodlightpof.protocol.action.OFActionOutput;
+import org.onosproject.floodlightpof.protocol.action.OFActionType;
+import org.onosproject.floodlightpof.protocol.instruction.OFInstructionApplyActions;
+import org.onosproject.floodlightpof.protocol.instruction.OFInstructionType;
+import org.onosproject.floodlightpof.protocol.table.OFFlowTable;
+import org.onosproject.floodlightpof.protocol.table.OFTableMod;
+import org.onosproject.floodlightpof.protocol.table.OFTableType;
+import org.onosproject.net.DeviceOFTableType;
+import org.onosproject.net.DeviceTableId;
+import org.onosproject.net.flow.criteria.PofCriterion;
+import org.onosproject.net.flow.instructions.DefaultPofActions;
+import org.onosproject.net.flow.instructions.DefaultPofInstructions;
+import org.onosproject.net.flow.instructions.PofAction;
+import org.onosproject.net.flow.instructions.PofInstruction;
+import org.onosproject.net.table.DefaultFlowTable;
+import org.onosproject.net.table.FlowTableBatchEntry;
+import org.onosproject.net.table.FlowTableBatchOperation;
+import org.onosproject.net.table.FlowTableId;
 import org.onosproject.store.impl.MastershipBasedTimestamp;
 import org.onosproject.store.impl.Timestamped;
 import org.onosproject.store.service.WallClockTimestamp;
@@ -24,7 +45,7 @@ import org.onlab.util.KryoNamespace;
 public final class DistributedStoreSerializers {
 
 
-    public static final int STORE_CUSTOM_BEGIN = KryoNamespaces.BEGIN_USER_CUSTOM_ID + 10;
+    public static final int STORE_CUSTOM_BEGIN = KryoNamespaces.BEGIN_USER_CUSTOM_ID + 100;
 
     /**
      * KryoNamespace which can serialize ON.lab misc classes.
@@ -35,6 +56,31 @@ public final class DistributedStoreSerializers {
             .register(Timestamped.class)
             .register(new MastershipBasedTimestampSerializer(), MastershipBasedTimestamp.class)
             .register(WallClockTimestamp.class)
+            .register(WallClockTimestamp.class)
+            .register(FlowTableBatchEntry.class)
+            .register(FlowTableBatchEntry.FlowTableOperation.class)
+            .register(FlowTableBatchEntry.FlowTableOperation.class)
+            .register(FlowTableBatchOperation.class)
+            .register(DefaultFlowTable.class)
+            .register(OFFlowTable.class)
+            .register(OFTableMod.OFTableModCmd.class)
+            .register(OFMatch20.class)
+            .register(OFTableType.class)
+            .register(FlowTableId.class)
+            .register(OFMatch.class)
+            .register(DeviceOFTableType.class)
+            .register(DeviceTableId.class)
+            .register(PofCriterion.class)
+            .register(DefaultPofInstructions.PofInstructionApplyActions.class)
+            .register(PofAction.class)
+            .register(DefaultPofActions.class)
+            .register(DefaultPofActions.PofActionOutput.class)
+            .register(PofInstruction.class)
+            .register(OFInstructionApplyActions.class)
+            .register(OFAction.class)
+            .register(OFActionType.class)
+            .register(OFActionOutput.class)
+            .register(OFInstructionType.class)
             .build();
 
     // avoid instantiation
