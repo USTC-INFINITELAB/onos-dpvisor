@@ -17,4 +17,5 @@
 /**
  * NETCONF controller implementations.
  */
+@java.lang.Deprecated
 package org.onosproject.netconf.ctl;

@@ -26,7 +26,7 @@ import org.onosproject.store.primitives.MapUpdate;
 import org.onosproject.store.primitives.TransactionId;
 import org.onosproject.store.service.MapEvent;
 import org.onosproject.store.service.MapEventListener;
-import org.onosproject.store.service.MapTransaction;
+import org.onosproject.store.service.TransactionLog;
 import org.onosproject.store.service.Versioned;
 
 import java.util.Arrays;
@@ -41,6 +41,7 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
@@ -117,6 +118,16 @@ public class AtomixConsistentMapTest extends AtomixTestBase {
             assertTrue(result);
         }).join();
 
+        map.getOrDefault("nothing", null).thenAccept(result -> {
+            assertEquals(0, result.version());
+            assertNull(result.value());
+        }).join();
+
+        map.getOrDefault("foo", "bar".getBytes()).thenAccept(result -> {
+            assertEquals(0, result.version());
+            assertArrayEquals("bar".getBytes(), result.value());
+        }).join();
+
         map.put("foo", rawFooValue).thenAccept(result -> {
             assertNull(result);
         }).join();
@@ -162,6 +173,11 @@ public class AtomixConsistentMapTest extends AtomixTestBase {
 
         map.get("foo").thenAccept(result -> {
             assertTrue(Arrays.equals(Versioned.valueOrElse(result, null), rawFooValue));
+        }).join();
+
+        map.getOrDefault("foo", "bar".getBytes()).thenAccept(result -> {
+            assertNotEquals(0, result.version());
+            assertArrayEquals(rawFooValue, result.value());
         }).join();
 
         map.remove("foo").thenAccept(result -> {
@@ -350,7 +366,8 @@ public class AtomixConsistentMapTest extends AtomixTestBase {
                 .withValue(value1)
                 .build();
 
-        MapTransaction<String, byte[]> tx = new MapTransaction<>(TransactionId.from("tx1"), Arrays.asList(update1));
+        TransactionLog<MapUpdate<String, byte[]>> tx =
+                new TransactionLog<>(TransactionId.from("tx1"), Arrays.asList(update1));
 
         map.prepare(tx).thenAccept(result -> {
             assertEquals(true, result);
@@ -400,7 +417,7 @@ public class AtomixConsistentMapTest extends AtomixTestBase {
                 .withCurrentVersion(currFooVersion)
                 .build();
 
-        tx = new MapTransaction<>(TransactionId.from("tx2"), Arrays.asList(remove1));
+        tx = new TransactionLog<>(TransactionId.from("tx2"), Arrays.asList(remove1));
 
         map.prepare(tx).thenAccept(result -> {
             assertTrue("prepare should succeed", result);
@@ -443,7 +460,8 @@ public class AtomixConsistentMapTest extends AtomixTestBase {
                 .withKey("foo")
                 .withValue(value1)
                 .build();
-        MapTransaction<String, byte[]> tx = new MapTransaction<>(TransactionId.from("tx1"), Arrays.asList(update1));
+        TransactionLog<MapUpdate<String, byte[]>> tx =
+                new TransactionLog<>(TransactionId.from("tx1"), Arrays.asList(update1));
         map.prepare(tx).thenAccept(result -> {
             assertEquals(true, result);
         }).join();

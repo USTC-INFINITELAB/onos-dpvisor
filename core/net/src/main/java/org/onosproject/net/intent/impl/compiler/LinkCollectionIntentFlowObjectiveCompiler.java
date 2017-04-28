@@ -52,7 +52,9 @@ import java.util.Set;
 
 /**
  * Compiler to produce flow objectives from link collections.
+ * @deprecated 1.10 Kingfisher
  */
+@Deprecated
 @Component(immediate = true)
 public class LinkCollectionIntentFlowObjectiveCompiler
         extends LinkCollectionCompiler<Objective>
@@ -123,6 +125,11 @@ public class LinkCollectionIntentFlowObjectiveCompiler
                                         objectives,
                                         intent.resources(),
                                         intent.resourceGroup()));
+    }
+
+    @Override
+    boolean optimizeTreatments() {
+        return false;
     }
 
     @Override

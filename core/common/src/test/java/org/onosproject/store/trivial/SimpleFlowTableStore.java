@@ -320,6 +320,7 @@ public class SimpleFlowTableStore
 
         return newFlowTableID;
     }
+
     public int getGlobalTableId(DeviceOFTableType deviceOFTableType) {
         int newFlowTableID = -1;
         DeviceId deviceId = deviceOFTableType.deviceId;

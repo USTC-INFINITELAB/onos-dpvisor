@@ -21,7 +21,10 @@ import org.onosproject.netconf.NetconfDeviceOutputEvent;
 /**
  * Entity associated with a NetconfSessionImpl and capable of receiving notifications of
  * events about the session.
+ *
+ * @deprecated in 1.10.0
  */
+@Deprecated
 public interface NetconfSessionDelegate {
 
         /**

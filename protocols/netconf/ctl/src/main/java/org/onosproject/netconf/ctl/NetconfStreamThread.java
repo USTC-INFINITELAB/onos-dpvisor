@@ -42,7 +42,10 @@ import java.util.regex.Pattern;
  * Thread that gets spawned each time a session is established and handles all the input
  * and output from the session's streams to and from the NETCONF device the session is
  * established with.
+ *
+ * @deprecated in 1.10.0
  */
+@Deprecated
 public class NetconfStreamThread extends Thread implements NetconfStreamHandler {
 
     private static final Logger log = LoggerFactory

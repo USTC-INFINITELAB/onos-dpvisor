@@ -38,6 +38,11 @@ public class MappingServiceAdapter implements MappingService {
         return 0;
     }
 
+    @Override
+    public Iterable<MappingEntry> getAllMappingEntries(Type type) {
+        return null;
+    }
+
 
     @Override
     public Iterable<MappingEntry> getMappingEntries(Type type, DeviceId deviceId) {
@@ -45,7 +50,7 @@ public class MappingServiceAdapter implements MappingService {
     }
 
     @Override
-    public Iterable<MappingEntry> getMappingEntriesByAddId(Type type, ApplicationId appId) {
+    public Iterable<MappingEntry> getMappingEntriesByAppId(Type type, ApplicationId appId) {
         return null;
     }
 }

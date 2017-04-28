@@ -47,7 +47,10 @@ import java.util.regex.Pattern;
 
 /**
  * Implementation of a NETCONF session to talk to a device.
+ *
+ * @deprecated in 1.10.0
  */
+@Deprecated
 public class NetconfSessionImpl implements NetconfSession {
 
     private static final Logger log = LoggerFactory
@@ -257,6 +260,7 @@ public class NetconfSessionImpl implements NetconfSession {
 
     }
 
+    @Override
     public void checkAndReestablish() throws NetconfException {
         if (sshSession.getState() != Channel.STATE_OPEN) {
             try {
@@ -399,12 +403,12 @@ public class NetconfSessionImpl implements NetconfSession {
 
     @Override
     public String getConfig(String netconfTargetConfig) throws NetconfException {
-        return getConfig(TargetConfig.valueOf(netconfTargetConfig));
+        return getConfig(TargetConfig.toTargetConfig(netconfTargetConfig));
     }
 
     @Override
     public String getConfig(String netconfTargetConfig, String configurationFilterSchema) throws NetconfException {
-        return getConfig(TargetConfig.valueOf(netconfTargetConfig), configurationFilterSchema);
+        return getConfig(TargetConfig.toTargetConfig(netconfTargetConfig), configurationFilterSchema);
     }
 
     @Override
@@ -442,7 +446,7 @@ public class NetconfSessionImpl implements NetconfSession {
     @Override
     public boolean editConfig(String netconfTargetConfig, String mode, String newConfiguration)
             throws NetconfException {
-        return editConfig(TargetConfig.valueOf(netconfTargetConfig), mode, newConfiguration);
+        return editConfig(TargetConfig.toTargetConfig(netconfTargetConfig), mode, newConfiguration);
     }
 
     @Override
@@ -479,7 +483,7 @@ public class NetconfSessionImpl implements NetconfSession {
 
     @Override
     public boolean copyConfig(String netconfTargetConfig, String newConfiguration) throws NetconfException {
-        return copyConfig(TargetConfig.valueOf(netconfTargetConfig), newConfiguration);
+        return copyConfig(TargetConfig.toTargetConfig(netconfTargetConfig), newConfiguration);
     }
 
     @Override
@@ -508,12 +512,12 @@ public class NetconfSessionImpl implements NetconfSession {
 
     @Override
     public boolean deleteConfig(String netconfTargetConfig) throws NetconfException {
-        return deleteConfig(TargetConfig.valueOf(netconfTargetConfig));
+        return deleteConfig(TargetConfig.toTargetConfig(netconfTargetConfig));
     }
 
     @Override
     public boolean deleteConfig(TargetConfig netconfTargetConfig) throws NetconfException {
-        if (netconfTargetConfig.equals("running")) {
+        if (netconfTargetConfig.equals(TargetConfig.RUNNING)) {
             log.warn("Target configuration for delete operation can't be \"running\"",
                      netconfTargetConfig);
             return false;

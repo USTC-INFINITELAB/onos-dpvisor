@@ -16,6 +16,10 @@
 package org.onosproject.net.flow.criteria;
 
 import java.util.ArrayList;
+<<<<<<< HEAD
+=======
+import java.util.Arrays;
+>>>>>>> 515a9b31544e3dca959914fbffff04a35a2c9c47
 import java.util.Objects;
 
 /**
@@ -183,8 +187,14 @@ public final class PofCriterion implements Criterion {
             return Objects.equals(fieldId, that.fieldId) &&
                     Objects.equals(offset, that.offset) &&
                     Objects.equals(length, that.length) &&
+<<<<<<< HEAD
                     Objects.equals(value, that.value) &&
                     Objects.equals(mask, that.mask) &&
+=======
+                    Arrays.equals(value, that.value) &&
+                    Arrays.equals(mask, that.mask) &&
+                    Objects.equals(list, that.list) &&
+>>>>>>> 515a9b31544e3dca959914fbffff04a35a2c9c47
                     Objects.equals(type, that.type);
         }
         return false;

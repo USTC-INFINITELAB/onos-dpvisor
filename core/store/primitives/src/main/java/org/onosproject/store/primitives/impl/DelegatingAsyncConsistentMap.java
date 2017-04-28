@@ -16,8 +16,6 @@
 
 package org.onosproject.store.primitives.impl;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import java.util.Collection;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -28,14 +26,14 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
-import org.onosproject.core.ApplicationId;
+import com.google.common.base.MoreObjects;
+import org.onosproject.store.primitives.MapUpdate;
 import org.onosproject.store.primitives.TransactionId;
 import org.onosproject.store.service.AsyncConsistentMap;
 import org.onosproject.store.service.MapEventListener;
-import org.onosproject.store.service.MapTransaction;
+import org.onosproject.store.service.TransactionLog;
+import org.onosproject.store.service.Version;
 import org.onosproject.store.service.Versioned;
-
-import com.google.common.base.MoreObjects;
 
 /**
  * {@code AsyncConsistentMap} that merely delegates control to
@@ -44,22 +42,14 @@ import com.google.common.base.MoreObjects;
  * @param <K> key type
  * @param <V> value type
  */
-public class DelegatingAsyncConsistentMap<K, V> implements AsyncConsistentMap<K, V> {
+public class DelegatingAsyncConsistentMap<K, V>
+        extends DelegatingDistributedPrimitive implements AsyncConsistentMap<K, V> {
 
     private final AsyncConsistentMap<K, V> delegateMap;
 
     DelegatingAsyncConsistentMap(AsyncConsistentMap<K, V> delegateMap) {
-        this.delegateMap = checkNotNull(delegateMap, "delegate map cannot be null");
-    }
-
-    @Override
-    public String name() {
-        return delegateMap.name();
-    }
-
-    @Override
-    public ApplicationId applicationId() {
-        return delegateMap.applicationId();
+        super(delegateMap);
+        this.delegateMap = delegateMap;
     }
 
     @Override
@@ -80,6 +70,11 @@ public class DelegatingAsyncConsistentMap<K, V> implements AsyncConsistentMap<K,
     @Override
     public CompletableFuture<Versioned<V>> get(K key) {
         return delegateMap.get(key);
+    }
+
+    @Override
+    public CompletableFuture<Versioned<V>> getOrDefault(K key, V defaultValue) {
+        return delegateMap.getOrDefault(key, defaultValue);
     }
 
     @Override
@@ -165,8 +160,18 @@ public class DelegatingAsyncConsistentMap<K, V> implements AsyncConsistentMap<K,
     }
 
     @Override
-    public CompletableFuture<Boolean> prepare(MapTransaction<K, V> transaction) {
-        return delegateMap.prepare(transaction);
+    public CompletableFuture<Version> begin(TransactionId transactionId) {
+        return delegateMap.begin(transactionId);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> prepare(TransactionLog<MapUpdate<K, V>> transactionLog) {
+        return delegateMap.prepare(transactionLog);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> prepareAndCommit(TransactionLog<MapUpdate<K, V>> transactionLog) {
+        return delegateMap.prepareAndCommit(transactionLog);
     }
 
     @Override
@@ -177,11 +182,6 @@ public class DelegatingAsyncConsistentMap<K, V> implements AsyncConsistentMap<K,
     @Override
     public CompletableFuture<Void> rollback(TransactionId transactionId) {
         return delegateMap.rollback(transactionId);
-    }
-
-    @Override
-    public CompletableFuture<Boolean> prepareAndCommit(MapTransaction<K, V> transaction) {
-        return delegateMap.prepareAndCommit(transaction);
     }
 
     @Override

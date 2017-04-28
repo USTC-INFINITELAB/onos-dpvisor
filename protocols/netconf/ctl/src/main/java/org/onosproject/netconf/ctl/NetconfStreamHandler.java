@@ -24,7 +24,10 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Interface to represent an objects that does all the IO on a NETCONF session
  * with a device.
+ *
+ * @deprecated in 1.10.0
  */
+@Deprecated
 public interface NetconfStreamHandler {
     /**
      * Sends the request on the stream that is used to communicate to and from the device.

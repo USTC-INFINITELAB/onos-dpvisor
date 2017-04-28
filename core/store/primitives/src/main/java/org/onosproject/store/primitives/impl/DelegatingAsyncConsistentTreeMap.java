@@ -16,12 +16,6 @@
 
 package org.onosproject.store.primitives.impl;
 
-import org.onosproject.store.primitives.TransactionId;
-import org.onosproject.store.service.AsyncConsistentTreeMap;
-import org.onosproject.store.service.MapEventListener;
-import org.onosproject.store.service.MapTransaction;
-import org.onosproject.store.service.Versioned;
-
 import java.util.Collection;
 import java.util.Map;
 import java.util.NavigableMap;
@@ -33,6 +27,14 @@ import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
 
+import org.onosproject.store.primitives.MapUpdate;
+import org.onosproject.store.primitives.TransactionId;
+import org.onosproject.store.service.AsyncConsistentTreeMap;
+import org.onosproject.store.service.MapEventListener;
+import org.onosproject.store.service.TransactionLog;
+import org.onosproject.store.service.Version;
+import org.onosproject.store.service.Versioned;
+
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
@@ -40,11 +42,12 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * of {@link AsyncConsistentTreeMap}.
  */
 public class DelegatingAsyncConsistentTreeMap<V>
-        implements AsyncConsistentTreeMap<V> {
+        extends DelegatingDistributedPrimitive implements AsyncConsistentTreeMap<V> {
 
     private final AsyncConsistentTreeMap<V> delegateMap;
 
     DelegatingAsyncConsistentTreeMap(AsyncConsistentTreeMap<V> delegateMap) {
+        super(delegateMap);
         this.delegateMap = checkNotNull(delegateMap,
                                         "delegate map cannot be null");
     }
@@ -135,11 +138,6 @@ public class DelegatingAsyncConsistentTreeMap<V>
     }
 
     @Override
-    public String name() {
-        return delegateMap.name();
-    }
-
-    @Override
     public CompletableFuture<Integer> size() {
         return delegateMap.size();
     }
@@ -157,6 +155,11 @@ public class DelegatingAsyncConsistentTreeMap<V>
     @Override
     public CompletableFuture<Versioned<V>> get(String key) {
         return delegateMap.get(key);
+    }
+
+    @Override
+    public CompletableFuture<Versioned<V>> getOrDefault(String key, V defaultValue) {
+        return delegateMap.getOrDefault(key, defaultValue);
     }
 
     @Override
@@ -248,9 +251,18 @@ public class DelegatingAsyncConsistentTreeMap<V>
     }
 
     @Override
-    public CompletableFuture<Boolean> prepare(
-            MapTransaction<String, V> transaction) {
-        return delegateMap.prepare(transaction);
+    public CompletableFuture<Version> begin(TransactionId transactionId) {
+        return delegateMap.begin(transactionId);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> prepare(TransactionLog<MapUpdate<String, V>> transactionLog) {
+        return delegateMap.prepare(transactionLog);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> prepareAndCommit(TransactionLog<MapUpdate<String, V>> transactionLog) {
+        return delegateMap.prepareAndCommit(transactionLog);
     }
 
     @Override
@@ -261,12 +273,6 @@ public class DelegatingAsyncConsistentTreeMap<V>
     @Override
     public CompletableFuture<Void> rollback(TransactionId transactionId) {
         return delegateMap.rollback(transactionId);
-    }
-
-    @Override
-    public CompletableFuture<Boolean> prepareAndCommit(
-            MapTransaction<String, V> transaction) {
-        return delegateMap.prepareAndCommit(transaction);
     }
 
     @Override
@@ -283,5 +289,4 @@ public class DelegatingAsyncConsistentTreeMap<V>
     public int hashCode() {
         return Objects.hash(delegateMap);
     }
-
 }

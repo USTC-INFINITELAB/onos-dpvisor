@@ -17,6 +17,7 @@
 package org.onosproject.net.intent.impl.compiler;
 
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
@@ -35,6 +36,7 @@ import org.osgi.service.component.ComponentContext;
 import org.slf4j.Logger;
 
 import java.util.Map;
+import java.util.Set;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static org.slf4j.LoggerFactory.getLogger;
@@ -68,10 +70,10 @@ public class IntentConfigurableRegistrator {
     private String labelSelection = DEFAULT_LABEL_SELECTION;
 
     private static final boolean DEFAULT_FLOW_OPTIMIZATION = false;
-    @Property(name = "useFlowOptimization",
+    @Property(name = "optimizeInstructions",
             boolValue = DEFAULT_FLOW_OPTIMIZATION,
             label = "Indicates whether or not to optimize the flows in the link collection compiler")
-    private boolean useFlowOptimization = DEFAULT_FLOW_OPTIMIZATION;
+    private boolean optimizeInstructions = DEFAULT_FLOW_OPTIMIZATION;
 
     private static final boolean DEFAULT_COPY_TTL = false;
     @Property(name = "useCopyTtl",
@@ -79,8 +81,22 @@ public class IntentConfigurableRegistrator {
             label = "Indicates whether or not to use copy ttl in the link collection compiler")
     private boolean useCopyTtl = DEFAULT_COPY_TTL;
 
+    /**
+     * Temporary for switching old compiler and new compiler.
+     * @deprecated 1.10 Kingfisher
+     */
+    private static final String DEFAULT_FLOW_OBJECTIVE_COMPILER =
+            "org.onosproject.net.intent.impl.compiler.LinkCollectionIntentFlowObjectiveCompiler";
+    @Deprecated
+    @Property(name = "defaultFlowObjectiveCompiler",
+            value = DEFAULT_FLOW_OBJECTIVE_COMPILER,
+            label = "Default compiler to generate flow objective")
+    private String defaultFlowObjectiveCompiler = DEFAULT_FLOW_OBJECTIVE_COMPILER;
+
     private final Map<Class<Intent>, IntentCompiler<Intent>> flowRuleBased = Maps.newConcurrentMap();
-    private final Map<Class<Intent>, IntentCompiler<Intent>> flowObjectiveBased = Maps.newConcurrentMap();
+
+    // FIXME: temporary code for switching old compiler to new compiler
+    private final Map<Class<Intent>, Set<IntentCompiler<Intent>>> flowObjectiveBased = Maps.newConcurrentMap();
 
     @Activate
     public void activate() {
@@ -99,8 +115,11 @@ public class IntentConfigurableRegistrator {
         if (context == null) {
             log.info("Settings: useFlowObjectives={}", useFlowObjectives);
             log.info("Settings: labelSelection={}", labelSelection);
-            log.info("Settings: useFlowOptimization={}", useFlowOptimization);
+            log.info("Settings: useFlowOptimization={}", optimizeInstructions);
             log.info("Settings: useCopyTtl={}", useCopyTtl);
+
+            // FIXME: temporary code for switching old compiler to new compiler
+            log.info("Settings: defaultFlowObjectiveCompiler={}", defaultFlowObjectiveCompiler);
             return;
         }
 
@@ -116,6 +135,21 @@ public class IntentConfigurableRegistrator {
             useFlowObjectives = newFlowObjectives;
             changeCompilers();
             log.info("Settings: useFlowObjectives={}", useFlowObjectives);
+        }
+
+        // FIXME: temporary code for switching old compiler to new compiler
+        String newDefaultFlowObjectiveCompiler;
+        try {
+            String s = Tools.get(context.getProperties(), "defaultFlowObjectiveCompiler");
+            newDefaultFlowObjectiveCompiler = isNullOrEmpty(s) ? defaultFlowObjectiveCompiler : s.trim();
+        } catch (ClassCastException e) {
+            newDefaultFlowObjectiveCompiler = defaultFlowObjectiveCompiler;
+        }
+
+        if (!defaultFlowObjectiveCompiler.equals(newDefaultFlowObjectiveCompiler)) {
+            defaultFlowObjectiveCompiler = newDefaultFlowObjectiveCompiler;
+            changeCompilers();
+            log.info("Settings: defaultFlowObjectiveCompiler={}", defaultFlowObjectiveCompiler);
         }
 
         String newLabelSelection;
@@ -135,15 +169,15 @@ public class IntentConfigurableRegistrator {
         boolean newFlowOptimization;
         try {
             String s = Tools.get(context.getProperties(), "useFlowOptimization");
-            newFlowOptimization = isNullOrEmpty(s) ? useFlowOptimization : Boolean.parseBoolean(s.trim());
+            newFlowOptimization = isNullOrEmpty(s) ? optimizeInstructions : Boolean.parseBoolean(s.trim());
         } catch (ClassCastException e) {
-            newFlowOptimization = useFlowOptimization;
+            newFlowOptimization = optimizeInstructions;
         }
 
-        if (useFlowOptimization != newFlowOptimization) {
-            useFlowOptimization = newFlowOptimization;
+        if (optimizeInstructions != newFlowOptimization) {
+            optimizeInstructions = newFlowOptimization;
             changeFlowOptimization();
-            log.info("Settings: useFlowOptimization={}", useFlowOptimization);
+            log.info("Settings: useFlowOptimization={}", optimizeInstructions);
         }
 
         boolean newCopyTtl;
@@ -173,7 +207,15 @@ public class IntentConfigurableRegistrator {
     <T extends Intent> void registerCompiler(Class<T> cls, IntentCompiler<T> compiler,
                                              boolean flowBased) {
         if (flowBased) {
-            flowObjectiveBased.put((Class<Intent>) cls, (IntentCompiler<Intent>) compiler);
+            // FIXME: temporary code for switching old compiler to new compiler
+            flowObjectiveBased.compute((Class<Intent>) cls, (clz, compilers) -> {
+                if (compilers == null) {
+                    compilers = Sets.newHashSet();
+                }
+
+                compilers.add((IntentCompiler<Intent>) compiler);
+                return compilers;
+            });
         } else {
             flowRuleBased.put((Class<Intent>) cls, (IntentCompiler<Intent>) compiler);
         }
@@ -204,7 +246,15 @@ public class IntentConfigurableRegistrator {
     private void changeCompilers() {
         if (useFlowObjectives) {
             flowRuleBased.forEach((cls, compiler) -> extensionService.unregisterCompiler(cls));
-            flowObjectiveBased.forEach((cls, compiler) -> extensionService.registerCompiler(cls, compiler));
+            // FIXME: temporary code for switching old compiler to new compiler
+            flowObjectiveBased.forEach((cls, compilers) -> {
+                compilers.forEach(compiler -> {
+                    // filter out flow objective compiler which doesn't match
+                    if (compiler.getClass().getName().equals(defaultFlowObjectiveCompiler)) {
+                        extensionService.registerCompiler(cls, compiler);
+                    }
+                });
+            });
         } else {
             flowObjectiveBased.forEach((cls, compiler) -> extensionService.unregisterCompiler(cls));
             flowRuleBased.forEach((cls, compiler) -> extensionService.registerCompiler(cls, compiler));
@@ -216,7 +266,7 @@ public class IntentConfigurableRegistrator {
     }
 
     private void changeFlowOptimization() {
-        LinkCollectionCompiler.optimize = useFlowOptimization;
+        LinkCollectionCompiler.optimizeInstructions = optimizeInstructions;
     }
 
     private void changeCopyTtl() {

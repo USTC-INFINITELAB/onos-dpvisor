@@ -734,7 +734,6 @@ public class NewDistributedFlowTableStore
                 0);
     }
 
-
     @Override
     public void storeFlowTable(FlowTable table) {
 //        log.info("+++++ before storeBatch");

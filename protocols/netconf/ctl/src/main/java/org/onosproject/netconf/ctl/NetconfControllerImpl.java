@@ -61,8 +61,11 @@ import static org.onlab.util.Tools.groupedThreads;
 
 /**
  * The implementation of NetconfController.
+ *
+ * @deprecated in 1.10.0
  */
-@Component(immediate = true)
+@Deprecated
+@Component(immediate = false, enabled = false)
 @Service
 public class NetconfControllerImpl implements NetconfController {
     private static final int DEFAULT_CONNECT_TIMEOUT_SECONDS = 5;

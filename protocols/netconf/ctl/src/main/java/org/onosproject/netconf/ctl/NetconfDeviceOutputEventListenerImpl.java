@@ -25,7 +25,10 @@ import org.slf4j.LoggerFactory;
 /**
  * Example of a listener for events that happen a Netconf session established
  * for a particular NETCONF device.
+ *
+ * @deprecated in 1.10.0 use FilteringNetconfDeviceOutputEventListener
  */
+@Deprecated
 public class NetconfDeviceOutputEventListenerImpl implements NetconfDeviceOutputEventListener {
 
     private static final Logger log =

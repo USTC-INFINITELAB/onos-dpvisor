@@ -28,7 +28,10 @@ import java.io.IOException;
 
 /**
  * Default implementation of a NETCONF device.
+ *
+ * @deprecated in 1.10.0
  */
+@Deprecated
 public class DefaultNetconfDevice implements NetconfDevice {
 
     public static final Logger log = LoggerFactory

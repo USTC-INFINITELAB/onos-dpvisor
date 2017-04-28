@@ -26,6 +26,7 @@ import org.onosproject.lisp.ctl.LispRouterId;
 import org.onosproject.lisp.ctl.LispRouterListener;
 import org.onosproject.lisp.msg.protocols.LispMapNotify;
 import org.onosproject.lisp.msg.protocols.LispMapRecord;
+import org.onosproject.lisp.msg.protocols.LispMapRegister;
 import org.onosproject.lisp.msg.protocols.LispMapReply;
 import org.onosproject.lisp.msg.protocols.LispMessage;
 import org.onosproject.mapping.MappingEntry;
@@ -41,6 +42,8 @@ import org.onosproject.provider.lisp.mapping.util.MappingEntryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.List;
 
 import static org.onosproject.mapping.MappingStore.Type.MAP_CACHE;
@@ -131,17 +134,37 @@ public class LispMappingProvider extends AbstractProvider implements MappingProv
 
         @Override
         public void handleIncomingMessage(LispRouterId routerId, LispMessage msg) {
+            if (providerService == null) {
+                log.warn("provider service has not been initialized");
+                return;
+            }
 
+            DeviceId deviceId = getDeviceId(routerId.toString());
+            switch (msg.getType()) {
+
+                case LISP_MAP_REQUEST:
+                    log.warn("LISP mapping query feature will be added when " +
+                             "provider service supports it.");
+                    break;
+
+                case LISP_MAP_REGISTER:
+                    LispMapRegister register = (LispMapRegister) msg;
+                    processMappings(deviceId, register.getMapRecords(), MAP_DATABASE);
+                    break;
+
+                default:
+                    log.warn("Unhandled message type: {}", msg.getType());
+            }
         }
 
         @Override
         public void handleOutgoingMessage(LispRouterId routerId, LispMessage msg) {
             if (providerService == null) {
-                // We are shutting down, nothing to be done
+                log.warn("provider service has not been initialized");
                 return;
             }
 
-            DeviceId deviceId = DeviceId.deviceId(routerId.toString());
+            DeviceId deviceId = getDeviceId(routerId.toString());
             switch (msg.getType()) {
 
                 case LISP_MAP_REPLY:
@@ -174,6 +197,21 @@ public class LispMappingProvider extends AbstractProvider implements MappingProv
                         new MappingEntryBuilder(deviceId, r, deviceService).build();
                 providerService.mappingAdded(me, type);
             });
+        }
+    }
+
+    /**
+     * Obtains the DeviceId contains IP address of LISP router.
+     *
+     * @param ip IP address
+     * @return DeviceId device identifier
+     */
+    private DeviceId getDeviceId(String ip) {
+        try {
+            return DeviceId.deviceId(new URI(SCHEME_NAME, ip, null));
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException("Unable to build deviceID for device "
+                    + ip, e);
         }
     }
 }
