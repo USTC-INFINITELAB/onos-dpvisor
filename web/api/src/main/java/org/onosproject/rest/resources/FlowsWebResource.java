@@ -29,6 +29,10 @@ import org.onosproject.net.device.DeviceService;
 import org.onosproject.net.flow.FlowEntry;
 import org.onosproject.net.flow.FlowRule;
 import org.onosproject.net.flow.FlowRuleService;
+import org.onosproject.net.table.FlowTable;
+import org.onosproject.net.table.FlowTableId;
+import org.onosproject.net.table.FlowTableService;
+import org.onosproject.net.table.FlowTableStore;
 import org.onosproject.rest.AbstractWebResource;
 
 import javax.ws.rs.Consumes;
@@ -68,12 +72,16 @@ public class FlowsWebResource extends AbstractWebResource {
     private static final String APP_ID_NOT_FOUND = "Application Id is not found";
     private static final String FLOW_ARRAY_REQUIRED = "Flows array was not specified";
     private static final String FLOWS = "flows";
+    private static final String TABLE = "table";
     private static final String DEVICE_ID = "deviceId";
     private static final String FLOW_ID = "flowId";
+    private static final String TABLE_ID = "tableId";
 
     private final FlowRuleService service = get(FlowRuleService.class);
+    private final FlowTableService tableService = get(FlowTableService.class);
     private final ObjectNode root = mapper().createObjectNode();
     private final ArrayNode flowsNode = root.putArray(FLOWS);
+    private final ArrayNode tablesNode = root.putArray(TABLE);
 
     /**
      * Gets all flow entries. Returns array of all flow rules in the system.
@@ -113,23 +121,43 @@ public class FlowsWebResource extends AbstractWebResource {
     @Produces(MediaType.APPLICATION_JSON)
     public Response createFlows(@QueryParam("appId") String appId, InputStream stream) {
         try {
-            ObjectNode jsonTree = (ObjectNode) mapper().readTree(stream);
-            ArrayNode flowsArray = nullIsIllegal((ArrayNode) jsonTree.get(FLOWS),
-                                                 FLOW_ARRAY_REQUIRED);
+            if (appId.equals("table")) {
+                ObjectNode jsonTree = (ObjectNode) mapper().readTree(stream);
+                ArrayNode tableArray = nullIsIllegal((ArrayNode) jsonTree.get(TABLE),
+                        FLOW_ARRAY_REQUIRED);
 
-            if (appId != null) {
-                flowsArray.forEach(flowJson -> ((ObjectNode) flowJson).put("appId", appId));
+                if (appId != null) {
+                    tableArray.forEach(tableJson -> ((ObjectNode) tableJson).put("appId", appId));
+                }
+
+                List<FlowTable> tables = codec(FlowTable.class).decode(tableArray, this);
+
+                tableService.applyFlowTables(tables.toArray(new FlowTable[tables.size()]));
+                tables.forEach(flowTable -> {
+                    ObjectNode tableNode = mapper().createObjectNode();
+                    tableNode.put(DEVICE_ID, flowTable.deviceId().toString())
+                            .put(TABLE_ID, Long.toString(flowTable.id().value()));
+                    tablesNode.add(tableNode);
+                });
+            } else {
+                ObjectNode jsonTree = (ObjectNode) mapper().readTree(stream);
+                ArrayNode flowsArray = nullIsIllegal((ArrayNode) jsonTree.get(FLOWS),
+                        FLOW_ARRAY_REQUIRED);
+
+                if (appId != null) {
+                    flowsArray.forEach(flowJson -> ((ObjectNode) flowJson).put("appId", appId));
+                }
+
+                List<FlowRule> rules = codec(FlowRule.class).decode(flowsArray, this);
+
+                service.applyFlowRules(rules.toArray(new FlowRule[rules.size()]));
+                rules.forEach(flowRule -> {
+                    ObjectNode flowNode = mapper().createObjectNode();
+                    flowNode.put(DEVICE_ID, flowRule.deviceId().toString())
+                            .put(FLOW_ID, Long.toString(flowRule.id().value()));
+                    flowsNode.add(flowNode);
+                });
             }
-
-            List<FlowRule> rules = codec(FlowRule.class).decode(flowsArray, this);
-
-            service.applyFlowRules(rules.toArray(new FlowRule[rules.size()]));
-            rules.forEach(flowRule -> {
-                ObjectNode flowNode = mapper().createObjectNode();
-                flowNode.put(DEVICE_ID, flowRule.deviceId().toString())
-                        .put(FLOW_ID, Long.toString(flowRule.id().value()));
-                flowsNode.add(flowNode);
-            });
         } catch (IOException ex) {
             throw new IllegalArgumentException(ex);
         }
@@ -287,16 +315,37 @@ public class FlowsWebResource extends AbstractWebResource {
     @Path("{deviceId}/{flowId}")
     public Response deleteFlowByDeviceIdAndFlowId(@PathParam("deviceId") String deviceId,
                                                   @PathParam("flowId") long flowId) {
+        int i;
+        FlowTableId tableId = FlowTableId.valueOf(flowId);
+        for (i = 0;i<deviceId.length();i++) {
+            if (!(deviceId.charAt(i)>=48&&deviceId.charAt(i)<=57))
+                break;
+        }
+        DeviceId deviceid = DeviceId.deviceId(deviceId.substring(i, deviceId.length()));
         final Iterable<FlowEntry> flowEntries =
-                service.getFlowEntries(DeviceId.deviceId(deviceId));
-
-        if (!flowEntries.iterator().hasNext()) {
+                service.getFlowEntries(DeviceId
+                        .deviceId(deviceId.substring(i, deviceId.length())));
+        final Iterable<FlowTable> flowTables =
+                tableService.getFlowTables(DeviceId
+                        .deviceId(deviceId.substring(i, deviceId.length())));
+        if (deviceId.substring(0, 3).equals("pof")) {
+            if (!flowTables.iterator().hasNext()) {
+                throw new ItemNotFoundException(DEVICE_NOT_FOUND);
+            }
+        } else if(deviceId.substring(0, 2).equals("of")) {if (!flowEntries.iterator().hasNext()) {
             throw new ItemNotFoundException(DEVICE_NOT_FOUND);
         }
+        }
 
-        StreamSupport.stream(flowEntries.spliterator(), false)
+        if (deviceId.substring(0, 3).equals("pof")) {
+            tableService.removeFlowTablesByTableId(deviceid, tableId);
+        } else if(!(i==0)) {
+            String entryId = deviceId.substring(0,i);
+            tableService.removeFlowEntryByEntryId(deviceid, (int) flowId,  Integer.parseInt(entryId));
+        } else {StreamSupport.stream(flowEntries.spliterator(), false)
                 .filter(entry -> entry.id().value() == flowId)
                 .forEach(service::removeFlowRules);
+        }
         return Response.noContent().build();
     }
 

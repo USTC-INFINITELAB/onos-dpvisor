@@ -37,6 +37,23 @@ public final class DefaultPofInstructions {
 
     private static final String SEPARATOR = ":";
 
+    public enum PofInstructionType {
+
+        CALCULATE_FIELD,
+
+        GOTO_DIRECT_TABLE,
+
+        GOTO_TABLE,
+
+        POF_ACTION,
+
+        WRITE_METADATA,
+
+        WRITE_METADATA_FROM_PACKET
+
+        //TODO: remaining types
+    }
+
     // Ban construction
     private DefaultPofInstructions() {}
 

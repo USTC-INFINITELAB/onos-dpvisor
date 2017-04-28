@@ -42,6 +42,33 @@ public final class DefaultPofActions {
 
     private static final String SEPARATOR = ":";
 
+    public enum PofActionType {
+
+        OUTPUT,
+
+        SET_FIELD,
+
+        SET_FIELD_FROM_METADATA,
+
+        MODIFY_FIELD,
+
+        ADD_FIELD,
+
+        DELETE_FIELD,
+
+        CALCULATE_CHECKSUM,
+
+        GROUP,
+
+        DROP,
+
+        PACKET_IN,
+
+        COUNTER
+
+        //TODO: remaining types
+    }
+
     // Ban construction
     private DefaultPofActions() {}
     public static PofAction addField(short fieldId, short fieldPosition, int fieldLength, String fieldValue) {

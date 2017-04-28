@@ -29,6 +29,9 @@ import org.onlab.util.HexString;
 import org.onosproject.codec.CodecContext;
 import org.onosproject.codec.ExtensionTreatmentCodec;
 import org.onosproject.core.GroupId;
+import org.onosproject.floodlightpof.protocol.OFMatch20;
+import org.onosproject.floodlightpof.protocol.action.OFAction;
+import org.onosproject.floodlightpof.protocol.instruction.OFInstructionCalculateField;
 import org.onosproject.net.ChannelSpacing;
 import org.onosproject.net.Device;
 import org.onosproject.net.DeviceId;
@@ -37,19 +40,15 @@ import org.onosproject.net.OchSignal;
 import org.onosproject.net.OduSignalId;
 import org.onosproject.net.PortNumber;
 import org.onosproject.net.device.DeviceService;
-import org.onosproject.net.flow.instructions.ExtensionTreatment;
-import org.onosproject.net.flow.instructions.Instruction;
-import org.onosproject.net.flow.instructions.Instructions;
-import org.onosproject.net.flow.instructions.L0ModificationInstruction;
-import org.onosproject.net.flow.instructions.L1ModificationInstruction;
-import org.onosproject.net.flow.instructions.L2ModificationInstruction;
-import org.onosproject.net.flow.instructions.L3ModificationInstruction;
-import org.onosproject.net.flow.instructions.L4ModificationInstruction;
+import org.onosproject.net.flow.instructions.*;
 import org.onosproject.net.meter.MeterId;
 import org.slf4j.Logger;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.IntStream;
 
 import static org.onlab.util.Tools.nullIsIllegal;
 import static org.slf4j.LoggerFactory.getLogger;
@@ -254,6 +253,188 @@ public final class DecodeInstructionCodecHelper {
     }
 
     /**
+     * Decodes a Pof instruction.
+     *
+     * @return instruction object decoded from the JSON
+     * @throws IllegalArgumentException if the JSON is invalid
+     */
+    private Instruction decodePof() {
+        String node = json.get(InstructionCodec.POF_INSTRUCTION).asText();
+        if (node.equals(Instruction.Type.POFACTION.name())) {
+            JsonNode pofActionsJson = json.get(InstructionCodec.ACTIONS);
+            List<OFAction> actions = new ArrayList<OFAction>();
+            IntStream.range(0, pofActionsJson.size())
+                    .forEach(i -> actions.add(
+                            decodePofAction(pofActionsJson.path(i))));
+            return DefaultPofInstructions.applyActions(actions);
+        } else if (node.equals(DefaultPofInstructions.PofInstructionType.WRITE_METADATA.name())) {
+            short metadataOffset = (short) nullIsIllegal(json.get(InstructionCodec.METADATA_OFFSET),
+                    InstructionCodec.METADATA_OFFSET + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            short writeLength = (short) nullIsIllegal(json.get(InstructionCodec.WRITE_LENGTH),
+                    InstructionCodec.WRITE_LENGTH + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            byte[] value =  nullIsIllegal(json.get(InstructionCodec.VALUE),
+                    InstructionCodec.VALUE + InstructionCodec.MISSING_MEMBER_MESSAGE).asText().getBytes();
+            return DefaultPofInstructions.writeMetadata(metadataOffset, writeLength, value);
+        } else if (node.equals(DefaultPofInstructions.PofInstructionType.WRITE_METADATA_FROM_PACKET.name())) {
+            short metadataOffset = (short) nullIsIllegal(json.get(InstructionCodec.METADATA_OFFSET),
+                    InstructionCodec.METADATA_OFFSET + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            short metadataLength = (short) nullIsIllegal(json.get(InstructionCodec.METADATA_LENGTH),
+                    InstructionCodec.METADATA_LENGTH + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            short packetOffset = (short) nullIsIllegal(json.get(InstructionCodec.PACKET_OFFSET),
+                    InstructionCodec.PACKET_OFFSET + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            return DefaultPofInstructions.writeMetadataFromPacket(metadataOffset, packetOffset, metadataLength);
+        } else if (node.equals(DefaultPofInstructions.PofInstructionType.CALCULATE_FIELD.name())) {
+            JsonNode srcFieldJson = json.get(InstructionCodec.SRC_FIELD);
+            JsonNode dstFieldJson = json.get(InstructionCodec.DST_FIELD);
+            OFInstructionCalculateField.OFCalcType type = OFInstructionCalculateField.OFCalcType.OFPCT_ADD;
+            FlowTableCodec flowTableCodec = new FlowTableCodec();
+            String calcType = nullIsIllegal(json.get(InstructionCodec.OF_CALC_TYPE),
+                    InstructionCodec.OF_CALC_TYPE + InstructionCodec.MISSING_MEMBER_MESSAGE).asText();
+            if (calcType.equals("OFPCT_ADD")) {
+                type = OFInstructionCalculateField.OFCalcType.OFPCT_ADD;
+            } else if (calcType.equals("OFPCT_SUBTRACT")) {
+                type = OFInstructionCalculateField.OFCalcType.OFPCT_SUBTRACT;
+            } else if (calcType.equals("OFPCT_LEFT_SHIFT")) {
+                type = OFInstructionCalculateField.OFCalcType.OFPCT_LEFT_SHIFT;
+            } else if(calcType.equals("OFPCT_RIGHT_SHIFT")) {
+                type = OFInstructionCalculateField.OFCalcType.OFPCT_RIGHT_SHIFT;
+            } else if (calcType.equals("OFPCT_BITWISE_ADD")) {
+                type = OFInstructionCalculateField.OFCalcType.OFPCT_BITWISE_ADD;
+            } else if (calcType.equals("OFPCT_BITWISE_OR")) {
+                type = OFInstructionCalculateField.OFCalcType.OFPCT_BITWISE_OR;
+            } else if (calcType.equals("OFPCT_BITWISE_XOR")) {
+                type = OFInstructionCalculateField.OFCalcType.OFPCT_BITWISE_XOR;
+            } else if (calcType.equals("OFPCT_BITWISE_NOR")) {
+                type = OFInstructionCalculateField.OFCalcType.OFPCT_BITWISE_NOR;
+            }
+            OFMatch20 srcField = flowTableCodec.match20Codec(srcFieldJson);
+            OFMatch20 dstField = flowTableCodec.match20Codec(dstFieldJson);
+            byte srcValueType = (byte) nullIsIllegal(json.get(InstructionCodec.SRC_VALUE_TYPE),
+                    InstructionCodec.SRC_VALUE_TYPE + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            int srcValue = nullIsIllegal(json.get(InstructionCodec.SRC_VALUE),
+                    InstructionCodec.SRC_VALUE + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            return DefaultPofInstructions.calculateField(type, srcValueType, dstField, srcValue, srcField);
+        } else if (node.equals(DefaultPofInstructions.PofInstructionType.GOTO_TABLE.name())) {
+            JsonNode matchListJson = json.get(InstructionCodec.MATCH_LIST);
+            ArrayList<OFMatch20> matchList = new ArrayList<OFMatch20>();
+            FlowTableCodec flowTableCodec = new FlowTableCodec();
+            IntStream.range(0, matchListJson.size())
+                    .forEach(i -> matchList.add(
+                            flowTableCodec.match20Codec(matchListJson.path(i))));
+            byte matchFieldNum = (byte) nullIsIllegal(json.get(InstructionCodec.MATCH_FIELD_NUM),
+                    InstructionCodec.MATCH_FIELD_NUM + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            short packetOffset = (short) nullIsIllegal(json.get(InstructionCodec.PACKET_OFFSET),
+                    InstructionCodec.PACKET_OFFSET + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            byte nextTableId = (byte) nullIsIllegal(json.get(InstructionCodec.NEXT_TABLE_ID),
+                    InstructionCodec.NEXT_TABLE_ID + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            return DefaultPofInstructions.gotoTable(nextTableId, matchFieldNum, packetOffset, matchList);
+        } else if (node.equals(DefaultPofInstructions.PofInstructionType.GOTO_DIRECT_TABLE.name())) {
+            JsonNode matchFieldJson = json.get(InstructionCodec.INDEX_FIELD);
+            FlowTableCodec flowTableCodec = new FlowTableCodec();
+            OFMatch20 indexField = flowTableCodec.match20Codec(matchFieldJson);
+            byte nextTableId = (byte) nullIsIllegal(json.get(InstructionCodec.NEXT_TABLE_ID),
+                    InstructionCodec.NEXT_TABLE_ID + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            byte indexType = (byte) nullIsIllegal(json.get(InstructionCodec.INDEX_TYPE),
+                    InstructionCodec.INDEX_TYPE + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            short packetOffset = (short) nullIsIllegal(json.get(InstructionCodec.PACKET_OFFSET),
+                    InstructionCodec.PACKET_OFFSET + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            int indexValue = nullIsIllegal(json.get(InstructionCodec.INDEX_VALUE),
+                    InstructionCodec.INDEX_VALUE + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            return DefaultPofInstructions.gotoDirectTable(nextTableId, indexType, packetOffset, indexValue, indexField);
+        }
+        throw new IllegalArgumentException("Pof Instruction node "
+                + node + "is not supported");
+    }
+
+    private OFAction decodePofAction (JsonNode json) {
+        String node = json.get(InstructionCodec.POF_ACTION).asText();
+        if (node.equals(DefaultPofActions.PofActionType.OUTPUT.name())) {
+            short metadataOffset = (short) nullIsIllegal(json.get(InstructionCodec.METADATA_OFFSET),
+                    InstructionCodec.METADATA_OFFSET + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            short metadataLength = (short) nullIsIllegal(json.get(InstructionCodec.METADATA_LENGTH),
+                    InstructionCodec.METADATA_LENGTH + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            short packetOffset = (short) nullIsIllegal(json.get(InstructionCodec.PACKET_OFFSET),
+                    InstructionCodec.PACKET_OFFSET + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            int portId = nullIsIllegal(json.get(InstructionCodec.PORT),
+                    InstructionCodec.PORT + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            return DefaultPofActions.output(metadataOffset, metadataLength, packetOffset, portId).action();
+        } else if (node.equals(DefaultPofActions.PofActionType.ADD_FIELD.name())) {
+            short fieldId = (short) nullIsIllegal(json.get(InstructionCodec.FIELD_ID),
+                    InstructionCodec.FIELD_ID + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            short fieldPostion = (short) nullIsIllegal(json.get(InstructionCodec.FIELD_POSITION),
+                    InstructionCodec.FIELD_POSITION + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            short fieldLength = (short) nullIsIllegal(json.get(InstructionCodec.FIELD_LENGTH),
+                    InstructionCodec.FIELD_LENGTH + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            String fieldValue = nullIsIllegal(json.get(InstructionCodec.FIELD_VALUE),
+                    InstructionCodec.FIELD_VALUE + InstructionCodec.MISSING_MEMBER_MESSAGE).asText();
+            return DefaultPofActions.addField(fieldId, fieldPostion, fieldLength, fieldValue).action();
+        } else if (node.equals(DefaultPofActions.PofActionType.CALCULATE_CHECKSUM.name())) {
+            byte checksumPosType = (byte) nullIsIllegal(json.get(InstructionCodec.CHECKSUM_POS_TYPE),
+                    InstructionCodec.CHECKSUM_POS_TYPE + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            byte calcPosType = (byte) nullIsIllegal(json.get(InstructionCodec.CALC_POS_TYPE),
+                    InstructionCodec.CALC_POS_TYPE + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            short checksumPosition = (short) nullIsIllegal(json.get(InstructionCodec.CHECKSUM_POSITION),
+                    InstructionCodec.CHECKSUM_POSITION + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            short checksumLength = (short) nullIsIllegal(json.get(InstructionCodec.CHECKSUM_LENGTH),
+                    InstructionCodec.CHECKSUM_LENGTH + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            short calcStartPosition = (short) nullIsIllegal(json.get(InstructionCodec.CALC_START_POSITION),
+                    InstructionCodec.CALC_START_POSITION + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            short calcLength = (short) nullIsIllegal(json.get(InstructionCodec.CALC_LENGTH),
+                    InstructionCodec.CALC_LENGTH + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            return DefaultPofActions
+                    .calcCheckSum(checksumPosType, calcPosType, checksumPosition
+                            , checksumLength, calcStartPosition, calcLength).action();
+        } else if (node.equals(DefaultPofActions.PofActionType.COUNTER.name())) {
+            short counterId = (short) nullIsIllegal(json.get(InstructionCodec.COUNTER_ID),
+                    InstructionCodec.COUNTER_ID + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            return DefaultPofActions.counter(counterId).action();
+        } else if (node.equals(DefaultPofActions.PofActionType.DELETE_FIELD.name())) {
+            short tagPosition = (short) nullIsIllegal(json.get(InstructionCodec.TAG_POSITION),
+                    InstructionCodec.TAG_POSITION + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            short tagLengthValue = (short) nullIsIllegal(json.get(InstructionCodec.TAG_LENGTH_VALUE),
+                    InstructionCodec.TAG_LENGTH_VALUE + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            return DefaultPofActions.deleteField(tagPosition, tagLengthValue).action();
+        } else if (node.equals(DefaultPofActions.PofActionType.DROP.name())) {
+            short reason = (short) nullIsIllegal(json.get(InstructionCodec.REASON),
+                    InstructionCodec.REASON + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            return DefaultPofActions.drop(reason).action();
+        } else if (node.equals(DefaultPofActions.PofActionType.GROUP.name())) {
+            short groupId = (short) nullIsIllegal(json.get(InstructionCodec.GROUP_ID),
+                    InstructionCodec.GROUP_ID + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            return DefaultPofActions.group(groupId).action();
+        } else if (node.equals(DefaultPofActions.PofActionType.MODIFY_FIELD.name())) {
+            JsonNode matchFieldJson = json.get(InstructionCodec.MATCH_FIELD);
+            FlowTableCodec flowTableCodec = new FlowTableCodec();
+            OFMatch20 matchField = flowTableCodec.match20Codec(matchFieldJson);
+            short increment = (short) nullIsIllegal(json.get(InstructionCodec.INCREMENT),
+                    InstructionCodec.INCREMENT + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            return DefaultPofActions.modifyField(matchField, increment).action();
+        } else if(node.equals(DefaultPofActions.PofActionType.PACKET_IN.name())) {
+            short reason = (short) nullIsIllegal(json.get(InstructionCodec.REASON),
+                    InstructionCodec.REASON + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            return DefaultPofActions.packetIn(reason).action();
+        } else if (node.equals(DefaultPofActions.PofActionType.SET_FIELD.name())) {
+            JsonNode matchFieldJson = json.get(InstructionCodec.MATCH_FIELD);
+            FlowTableCodec flowTableCodec = new FlowTableCodec();
+            OFMatch20 matchField = flowTableCodec.match20Codec(matchFieldJson);
+            String value = nullIsIllegal(json.get(InstructionCodec.VALUE),
+                    InstructionCodec.VALUE + InstructionCodec.MISSING_MEMBER_MESSAGE).asText();
+            String mask = nullIsIllegal(json.get(InstructionCodec.MASK),
+                    InstructionCodec.MASK + InstructionCodec.MISSING_MEMBER_MESSAGE).asText();
+            return DefaultPofActions.setField(matchField, value, mask).action();
+        } else if (node.equals(DefaultPofActions.PofActionType.SET_FIELD_FROM_METADATA.name())) {
+            JsonNode matchFieldJson = json.get(InstructionCodec.MATCH_FIELD);
+            FlowTableCodec flowTableCodec = new FlowTableCodec();
+            OFMatch20 matchField = flowTableCodec.match20Codec(matchFieldJson);
+            short metadataOffset = (short) nullIsIllegal(json.get(InstructionCodec.METADATA_OFFSET),
+                    InstructionCodec.METADATA_OFFSET + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
+            return DefaultPofActions.setFieldFromMetadata(matchField, metadataOffset).action();
+        }
+        throw new IllegalArgumentException("PofAction node "
+                + node + "is not supported");
+    }
+
+    /**
      * Decodes a extension instruction.
      *
      * @return extension treatment
@@ -382,6 +563,8 @@ public final class DecodeInstructionCodecHelper {
             return decodeL4();
         } else if (type.equals(Instruction.Type.EXTENSION.name())) {
             return decodeExtension();
+        } else if (type.equals(Instruction.Type.POFINSTRUCTION.name())) {
+            return decodePof();
         }
         throw new IllegalArgumentException("Instruction type "
                 + type + " is not supported");

@@ -22,10 +22,16 @@ import org.onosproject.codec.JsonCodec;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
 import org.onosproject.net.DeviceId;
-import org.onosproject.net.flow.DefaultFlowRule;
-import org.onosproject.net.flow.FlowRule;
-import org.onosproject.net.flow.TrafficSelector;
-import org.onosproject.net.flow.TrafficTreatment;
+import org.onosproject.net.DeviceTableId;
+import org.onosproject.net.flow.*;
+import org.onosproject.net.flow.criteria.Criteria;
+import org.onosproject.net.flow.criteria.Criterion;
+import org.onosproject.net.flow.instructions.Instruction;
+import org.onosproject.rest.AbstractWebResource;
+import org.onosproject.net.table.FlowTableStore;
+
+import java.util.ArrayList;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.onlab.util.Tools.nullIsIllegal;
@@ -43,9 +49,20 @@ public final class FlowRuleCodec extends JsonCodec<FlowRule> {
     private static final String DEVICE_ID = "deviceId";
     private static final String TREATMENT = "treatment";
     private static final String SELECTOR = "selector";
+    private static final String CRITERIA = "criteria";
+    private static final String INSTRUCTIONS = "instructions";
     private static final String MISSING_MEMBER_MESSAGE =
-                                " member is required in FlowRule";
+            " member is required in FlowRule";
     public static final String REST_APP_ID = "org.onosproject.rest";
+
+    public static class TableStoreResource extends AbstractWebResource {
+        public FlowTableStore getTableStore() {
+            final FlowTableStore tableStore = get(FlowTableStore.class);
+            return tableStore;
+        }
+    }
+
+    private static final TableStoreResource tableStore = new TableStoreResource();
 
     @Override
     public ObjectNode encode(FlowRule flowRule, CodecContext context) {
@@ -86,11 +103,20 @@ public final class FlowRuleCodec extends JsonCodec<FlowRule> {
         }
 
         FlowRule.Builder resultBuilder = new DefaultFlowRule.Builder();
-
+        DeviceId deviceid = DeviceId.deviceId(json.get(DEVICE_ID).asText());
         CoreService coreService = context.getService(CoreService.class);
         JsonNode appIdJson = json.get(APP_ID);
         String appId = appIdJson != null ? appIdJson.asText() : REST_APP_ID;
-        resultBuilder.fromApp(coreService.registerApplication(appId));
+        if (!(json.get(DEVICE_ID).asText().substring(0, 3).equals("pof"))) {
+            resultBuilder.fromApp(coreService
+                    .registerApplication(REST_APP_ID));
+        }
+
+        if (json.get(DEVICE_ID).asText().substring(0, 3).equals("pof")) {
+            long newFlowEntryId = tableStore.getTableStore()
+                    .getFlowEntryId(new DeviceTableId(deviceid, json.get(TABLE_ID).asInt()));
+            resultBuilder.withCookie(newFlowEntryId);
+        }
 
         int priority = nullIsIllegal(json.get(PRIORITY),
                 PRIORITY + MISSING_MEMBER_MESSAGE).asInt();
@@ -102,7 +128,7 @@ public final class FlowRuleCodec extends JsonCodec<FlowRule> {
             resultBuilder.makePermanent();
         } else {
             resultBuilder.makeTemporary(nullIsIllegal(json.get(TIMEOUT),
-                            TIMEOUT
+                    TIMEOUT
                             + MISSING_MEMBER_MESSAGE
                             + " if the flow is temporary").asInt());
         }
@@ -118,18 +144,56 @@ public final class FlowRuleCodec extends JsonCodec<FlowRule> {
 
         ObjectNode treatmentJson = get(json, TREATMENT);
         if (treatmentJson != null) {
+            if (json.get(DEVICE_ID).asText().substring(0, 3).equals("pof")) {
+                resultBuilder.withTreatment(pofTreatmentCodec(treatmentJson, context));
+            } else {
             JsonCodec<TrafficTreatment> treatmentCodec =
                     context.codec(TrafficTreatment.class);
             resultBuilder.withTreatment(treatmentCodec.decode(treatmentJson, context));
+            }
         }
 
         ObjectNode selectorJson = get(json, SELECTOR);
         if (selectorJson != null) {
-            JsonCodec<TrafficSelector> selectorCodec =
-                    context.codec(TrafficSelector.class);
-            resultBuilder.withSelector(selectorCodec.decode(selectorJson, context));
+            if (json.get(DEVICE_ID).asText().substring(0, 3).equals("pof")) {
+                resultBuilder.withSelector(pofSelectorCodec(selectorJson, context));
+            } else {
+                JsonCodec<TrafficSelector> selectorCodec =
+                        context.codec(TrafficSelector.class);
+                resultBuilder.withSelector(selectorCodec.decode(selectorJson, context));
+            }
         }
-
         return resultBuilder.build();
+    }
+
+    public TrafficSelector pofSelectorCodec (ObjectNode json, CodecContext context) {
+        final JsonCodec<Criterion> criterionCodec =
+                context.codec(Criterion.class);
+
+        JsonNode criteriaJson = json.get(CRITERIA);
+        ArrayList<Criterion> entryList = new ArrayList<Criterion>();
+        TrafficSelector.Builder builder = DefaultTrafficSelector.builder();
+        if (criteriaJson != null) {
+            IntStream.range(0, criteriaJson.size())
+                    .forEach(i -> entryList.add(
+                            criterionCodec.decode(get(criteriaJson, i),
+                                    context)));
+            builder.add(Criteria.matchOffsetLength(entryList));
+        }
+        return builder.build();
+    }
+
+    public TrafficTreatment pofTreatmentCodec (ObjectNode json, CodecContext context) {
+        final JsonCodec<Instruction> instructionsCodec =
+                context.codec(Instruction.class);
+        JsonNode instructionsJson = json.get(INSTRUCTIONS);
+        TrafficTreatment.Builder builder = DefaultTrafficTreatment.builder();
+        if (instructionsJson != null) {
+            IntStream.range(0, instructionsJson.size())
+                    .forEach(i -> builder.add(
+                            instructionsCodec.decode(get(instructionsJson, i),
+                                    context)));
+        }
+        return builder.build();
     }
 }

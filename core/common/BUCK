@@ -3,6 +3,7 @@ SRC_DEPS = [
     '//lib:floodlightpof',
     '//incubator/api:onos-incubator-api',
     '//core/api:onos-api',
+    '//utils/rest:onlab-rest',
 ]
 
 TEST_DEPS = [

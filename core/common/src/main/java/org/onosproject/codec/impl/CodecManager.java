@@ -85,6 +85,7 @@ import org.onosproject.net.meter.MeterRequest;
 import org.onosproject.net.packet.PacketRequest;
 import org.onosproject.net.region.Region;
 import org.onosproject.net.statistic.Load;
+import org.onosproject.net.table.FlowTable;
 import org.onosproject.net.topology.Topology;
 import org.onosproject.net.topology.TopologyCluster;
 import org.slf4j.Logger;
@@ -128,6 +129,7 @@ public class CodecManager implements CodecService {
         registerCodec(ConnectivityIntent.class, new ConnectivityIntentCodec());
         registerCodec(FlowEntry.class, new FlowEntryCodec());
         registerCodec(FlowRule.class, new FlowRuleCodec());
+        registerCodec(FlowTable.class, new FlowTableCodec());
         registerCodec(TrafficTreatment.class, new TrafficTreatmentCodec());
         registerCodec(TrafficSelector.class, new TrafficSelectorCodec());
         registerCodec(Instruction.class, new InstructionCodec());

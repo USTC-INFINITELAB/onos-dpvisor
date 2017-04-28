@@ -69,6 +69,12 @@ public final class CriterionCodec extends JsonCodec<Criterion> {
     protected static final String TRIBUTARY_SLOT_LEN = "tributarySlotLen";
     protected static final String TRIBUTARY_SLOT_BITMAP = "tributarySlotBitmap";
     protected static final String ODU_SIGNAL_TYPE = "oduSignalType";
+    protected static final String FIELD_ID = "fieldId";
+    protected static final String OFFSET = "offset";
+    protected static final String LENGTH = "length";
+    protected static final String VALUE = "value";
+    protected static final String MASK = "mask";
+
 
     @Override
     public ObjectNode encode(Criterion criterion, CodecContext context) {

@@ -102,6 +102,7 @@ public final class DecodeCriterionCodecHelper {
         decoderMap.put(Criterion.Type.TUNNEL_ID.name(), new TunnelIdDecoder());
         decoderMap.put(Criterion.Type.ODU_SIGID.name(), new OduSigIdDecoder());
         decoderMap.put(Criterion.Type.ODU_SIGTYPE.name(), new OduSigTypeDecoder());
+        decoderMap.put(Criterion.Type.POF.name(), new PofDecoder());
     }
 
     private class EthTypeDecoder implements CriterionDecoder {
@@ -487,6 +488,24 @@ public final class DecodeCriterionCodecHelper {
             return Criteria.matchOduSignalType(oduSignalType);
         }
     }
+
+    private class PofDecoder implements CriterionDecoder {
+        @Override
+        public Criterion decodeCriterion(ObjectNode json) {
+            short fieldId = (short) nullIsIllegal(json.get(CriterionCodec.FIELD_ID),
+                    CriterionCodec.FIELD_ID + MISSING_MEMBER_MESSAGE).asInt();
+            short offset = (short) nullIsIllegal(json.get(CriterionCodec.OFFSET),
+                    CriterionCodec.OFFSET + MISSING_MEMBER_MESSAGE).asInt();
+            short length = (short) nullIsIllegal(json.get(CriterionCodec.LENGTH),
+                    CriterionCodec.LENGTH + MISSING_MEMBER_MESSAGE).asInt();
+            String value = nullIsIllegal(json.get(CriterionCodec.VALUE),
+                    CriterionCodec.VALUE + MISSING_MEMBER_MESSAGE).asText();
+            String mask = nullIsIllegal(json.get(CriterionCodec.MASK),
+                    CriterionCodec.MASK + MISSING_MEMBER_MESSAGE).asText();
+            return Criteria.matchOffsetLength(fieldId, offset, length, value, mask);
+        }
+    }
+
 
     /**
      * Decodes the JSON into a criterion object.
