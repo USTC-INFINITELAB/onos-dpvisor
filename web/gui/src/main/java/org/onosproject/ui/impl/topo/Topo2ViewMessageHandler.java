@@ -16,14 +16,12 @@
 
 package org.onosproject.ui.impl.topo;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableSet;
 import org.onlab.osgi.ServiceDirectory;
 import org.onosproject.ui.RequestHandler;
 import org.onosproject.ui.UiConnection;
 import org.onosproject.ui.UiMessageHandler;
-import org.onosproject.ui.UiTopo2Overlay;
 import org.onosproject.ui.impl.UiWebSocket;
 import org.onosproject.ui.model.topo.UiClusterMember;
 import org.onosproject.ui.model.topo.UiNode;
@@ -42,11 +40,10 @@ import java.util.Set;
 
     The original topology view message handler was broken into two classes
     TopologyViewMessageHandler, and TopologyViewMessageHandlerBase.
-    We do not need to follow that model necessarily. Starting with a
-    single class, and breaking it apart later if necessary.
 
-    Need to figure out the connection between this message handler and the
-    new way of doing things with UiTopoSession...
+    We do not need to follow that model necessarily. Instead, we have this
+    class and Topo2Jsonifier, which takes UiModel objects and renders them
+    as JSON objects.
 
  */
 
@@ -75,6 +72,7 @@ public class Topo2ViewMessageHandler extends UiMessageHandler {
     private UiTopoSession topoSession;
     private Topo2Jsonifier t2json;
     private Topo2OverlayCache overlay2Cache;
+    private Topo2TrafficMessageHandler trafficHandler;
 
 
     @Override
@@ -94,6 +92,15 @@ public class Topo2ViewMessageHandler extends UiMessageHandler {
      */
     public void setOverlayCache(Topo2OverlayCache overlay2Cache) {
         this.overlay2Cache = overlay2Cache;
+    }
+
+    /**
+     * Sets a reference to the traffic message handler.
+     *
+     * @param traffic the traffic message handler instance
+     */
+    public void setTrafficHandler(Topo2TrafficMessageHandler traffic) {
+        trafficHandler = traffic;
     }
 
 
@@ -127,23 +134,6 @@ public class Topo2ViewMessageHandler extends UiMessageHandler {
         String rid = currentLayout.regionId().toString();
         peersPayload.set("peers", t2json.closedNodes(rid, peers));
         return peersPayload;
-    }
-
-    private ObjectNode mkOverlaysMessage() {
-        ArrayNode a = arrayNode();
-        for (UiTopo2Overlay ov : overlay2Cache.list()) {
-            a.add(json(ov));
-        }
-        ObjectNode payload = objectNode();
-        payload.set("overlays", a);
-        return payload;
-    }
-
-    private ObjectNode json(UiTopo2Overlay ov) {
-        return objectNode()
-                .put("id", ov.id())
-                .put("name", ov.name())
-                .put("gid", ov.glyphId());
     }
 
     // ==================================================================
@@ -186,9 +176,6 @@ public class Topo2ViewMessageHandler extends UiMessageHandler {
 
             // these are the regions/devices that are siblings to this region
             sendMessage(PEER_REGIONS, mkPeersMessage(currentLayout));
-
-            // these are the registered overlays
-            sendMessage(OVERLAYS, mkOverlaysMessage());
         }
     }
 
@@ -223,14 +210,12 @@ public class Topo2ViewMessageHandler extends UiMessageHandler {
         @Override
         public void process(ObjectNode payload) {
             // client view has gone away; so shut down server-side processing
-            // TODO: implement...
 
             log.debug("topo2Stop: {}", payload);
+            trafficHandler.ceaseAndDesist();
 
             // OLD CODE DID THE FOLLOWING...
-//            removeListeners();
 //            stopSummaryMonitoring();
-//            traffic.stopMonitoring();
         }
     }
 

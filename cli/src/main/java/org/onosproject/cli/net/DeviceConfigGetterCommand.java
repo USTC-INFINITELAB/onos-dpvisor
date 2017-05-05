@@ -29,12 +29,14 @@ import org.onosproject.net.driver.DriverService;
  *
  * This is a temporary development tool for use until yang integration is complete.
  * This uses a not properly specified behavior. DO NOT USE AS AN EXAMPLE.
+ *
+ * @deprecated in 1.10.0
  */
 
 //FIXME this should eventually be removed.
-
+@Deprecated
 @Command(scope = "onos", name = "device-configuration",
-        description = "Gets the configuration of the specified type from the" +
+        description = "[Deprecated]Gets the configuration of the specified type from the" +
                 "specified device.")
 public class DeviceConfigGetterCommand extends AbstractShellCommand {
 
@@ -48,6 +50,7 @@ public class DeviceConfigGetterCommand extends AbstractShellCommand {
 
     @Override
     protected void execute() {
+        print("[WARN] This command was marked deprecated in 1.10.0");
         DriverService service = get(DriverService.class);
         deviceId = DeviceId.deviceId(uri);
         DriverHandler h = service.createHandler(deviceId);

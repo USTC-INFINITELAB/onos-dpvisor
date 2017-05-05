@@ -35,7 +35,9 @@ def checkstyle(
         sh_test(
                 name = name + '-checkstyle',
                 test = '//tools/build/conf:start-buck-daemon',
-                deps = [ jar_target, '//tools/build/conf:onos-java-header' ],
+                deps = [ jar_target,
+                         '//tools/build/conf:onos-java-header',
+                         '//tools/build/conf:onos-build-conf', ],
                 args = [
                     '$(location //tools/build/conf:buck-daemon-jar)',
                     'checkstyle',
@@ -317,7 +319,7 @@ def tar_file(
    ):
 
    cmd = ( 'mkdir -p $TMP/%(root_dir)s && '
-           'cp -r -L $SRCDIR/* $TMP/%(root_dir)s && '
+           'cp -R -L $SRCDIR/* $TMP/%(root_dir)s && '
            'tar -C $TMP -zcf $OUT %(root_dir)s' ) % {
            'root_dir': root if root is not None else name
          }

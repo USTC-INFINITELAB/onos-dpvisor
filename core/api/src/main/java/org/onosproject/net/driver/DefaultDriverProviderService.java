@@ -18,6 +18,9 @@ package org.onosproject.net.driver;
 
 /**
  * Service representing availability of default drivers.
+ *
+ * @deprecated in Kingfisher release (1.10)
  */
+@Deprecated
 public interface DefaultDriverProviderService {
 }

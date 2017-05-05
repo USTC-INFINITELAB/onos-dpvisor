@@ -353,35 +353,35 @@ public class DistributedVirtualNetworkStore
     @Override
     public void removeNetwork(NetworkId networkId) {
         // Make sure that the virtual network exists before attempting to remove it.
-        if (networkExists(networkId)) {
-            //Remove all the devices of this network
-            Set<VirtualDevice> deviceSet = getDevices(networkId);
-            if (deviceSet != null) {
-                deviceSet.forEach(virtualDevice -> removeDevice(networkId, virtualDevice.id()));
-            }
-            //TODO update both maps in one transaction.
+        checkState(networkExists(networkId), "The network does not exist.");
 
-            VirtualNetwork virtualNetwork = networkIdVirtualNetworkMap.remove(networkId);
-            if (virtualNetwork == null) {
-                return;
-            }
-            TenantId tenantId = virtualNetwork.tenantId();
-
-            Set<NetworkId> networkIdSet = new HashSet<>();
-            tenantIdNetworkIdSetMap.get(tenantId).forEach(networkId1 -> {
-                if (networkId1.id().equals(networkId.id())) {
-                    networkIdSet.add(networkId1);
-                }
-            });
-
-            tenantIdNetworkIdSetMap.compute(virtualNetwork.tenantId(), (id, existingNetworkIds) -> {
-                if (existingNetworkIds == null || existingNetworkIds.isEmpty()) {
-                    return new HashSet<>();
-                } else {
-                    return new HashSet<>(Sets.difference(existingNetworkIds, networkIdSet));
-                }
-            });
+        //Remove all the devices of this network
+        Set<VirtualDevice> deviceSet = getDevices(networkId);
+        if (deviceSet != null) {
+            deviceSet.forEach(virtualDevice -> removeDevice(networkId, virtualDevice.id()));
         }
+        //TODO update both maps in one transaction.
+
+        VirtualNetwork virtualNetwork = networkIdVirtualNetworkMap.remove(networkId);
+        if (virtualNetwork == null) {
+            return;
+        }
+        TenantId tenantId = virtualNetwork.tenantId();
+
+        Set<NetworkId> networkIdSet = new HashSet<>();
+        tenantIdNetworkIdSetMap.get(tenantId).forEach(networkId1 -> {
+            if (networkId1.id().equals(networkId.id())) {
+                networkIdSet.add(networkId1);
+            }
+        });
+
+        tenantIdNetworkIdSetMap.compute(virtualNetwork.tenantId(), (id, existingNetworkIds) -> {
+            if (existingNetworkIds == null || existingNetworkIds.isEmpty()) {
+                return new HashSet<>();
+            } else {
+                return new HashSet<>(Sets.difference(existingNetworkIds, networkIdSet));
+            }
+        });
     }
 
     /**
@@ -394,6 +394,7 @@ public class DistributedVirtualNetworkStore
         checkNotNull(networkId, "The network identifier cannot be null.");
         return (networkIdVirtualNetworkMap.containsKey(networkId));
     }
+
 
     @Override
     public VirtualDevice addDevice(NetworkId networkId, DeviceId deviceId) {
@@ -514,8 +515,14 @@ public class DistributedVirtualNetworkStore
         if (virtualLinkSet == null) {
             virtualLinkSet = new HashSet<>();
         }
+
         // validate that the link does not already exist in this network
-        checkState(getLink(networkId, src, dst) == null, "The virtual link already exists");
+        checkState(getLink(networkId, src, dst) == null,
+                "The virtual link already exists");
+        checkState(getLink(networkId, src, null) == null,
+                "The source connection point has been used by another link");
+        checkState(getLink(networkId, null, dst) == null,
+                "The destination connection point has been used by another link");
 
         VirtualLink virtualLink = DefaultVirtualLink.builder()
                 .networkId(networkId)
@@ -536,8 +543,14 @@ public class DistributedVirtualNetworkStore
         Set<VirtualLink> virtualLinkSet = networkIdVirtualLinkSetMap.get(virtualLink.networkId());
         if (virtualLinkSet == null) {
             virtualLinkSet = new HashSet<>();
+            networkIdVirtualLinkSetMap.put(virtualLink.networkId(), virtualLinkSet);
+            log.warn("The updated virtual link {} has not been added", virtualLink);
+            return;
         }
-        virtualLinkSet.remove(virtualLink);
+        if (!virtualLinkSet.remove(virtualLink)) {
+            log.warn("The updated virtual link {} does not exist", virtualLink);
+            return;
+        }
 
         VirtualLink newVirtualLink = DefaultVirtualLink.builder()
                 .networkId(virtualLink.networkId())
@@ -557,6 +570,7 @@ public class DistributedVirtualNetworkStore
 
         final VirtualLink virtualLink = getLink(networkId, src, dst);
         if (virtualLink == null) {
+            log.warn("The removed virtual link between {} and {} does not exist", src, dst);
             return null;
         }
         Set<VirtualLink> virtualLinkSet = new HashSet<>();
@@ -742,7 +756,13 @@ public class DistributedVirtualNetworkStore
 
         VirtualLink virtualLink = null;
         for (VirtualLink link : virtualLinkSet) {
-            if (link.src().equals(src) && link.dst().equals(dst)) {
+            if (src == null && link.dst().equals(dst)) {
+                virtualLink = link;
+                break;
+            } else if (dst == null && link.src().equals(src)) {
+                virtualLink = link;
+                break;
+            } else if (link.src().equals(src) && link.dst().equals(dst)) {
                 virtualLink = link;
                 break;
             }

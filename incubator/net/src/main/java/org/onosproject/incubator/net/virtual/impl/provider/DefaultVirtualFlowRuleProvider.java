@@ -18,6 +18,8 @@ package org.onosproject.incubator.net.virtual.impl.provider;
 
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Table;
@@ -31,9 +33,11 @@ import org.apache.felix.scr.annotations.Service;
 import org.onlab.packet.VlanId;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
+import org.onosproject.core.DefaultApplicationId;
 import org.onosproject.incubator.net.virtual.NetworkId;
 import org.onosproject.incubator.net.virtual.VirtualNetworkService;
 import org.onosproject.incubator.net.virtual.VirtualPort;
+import org.onosproject.incubator.net.virtual.VirtualLink;
 import org.onosproject.incubator.net.virtual.provider.AbstractVirtualProvider;
 import org.onosproject.incubator.net.virtual.provider.InternalRoutingAlgorithm;
 import org.onosproject.incubator.net.virtual.provider.VirtualFlowRuleProvider;
@@ -45,6 +49,7 @@ import org.onosproject.net.Link;
 import org.onosproject.net.Path;
 import org.onosproject.net.PortNumber;
 import org.onosproject.net.device.DeviceService;
+import org.onosproject.net.flow.BatchOperationEntry;
 import org.onosproject.net.flow.CompletedBatchOperation;
 import org.onosproject.net.flow.DefaultFlowEntry;
 import org.onosproject.net.flow.DefaultFlowRule;
@@ -56,6 +61,8 @@ import org.onosproject.net.flow.FlowRuleBatchEntry;
 import org.onosproject.net.flow.FlowRuleBatchOperation;
 import org.onosproject.net.flow.FlowRuleEvent;
 import org.onosproject.net.flow.FlowRuleListener;
+import org.onosproject.net.flow.FlowRuleOperations;
+import org.onosproject.net.flow.FlowRuleOperationsContext;
 import org.onosproject.net.flow.FlowRuleService;
 import org.onosproject.net.flow.TrafficSelector;
 import org.onosproject.net.flow.TrafficTreatment;
@@ -73,6 +80,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.List;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -124,7 +132,6 @@ public class DefaultVirtualFlowRuleProvider extends AbstractVirtualProvider
         super(new ProviderId("vnet-flow", "org.onosproject.virtual.vnet-flow"));
     }
 
-
     @Activate
     public void activate() {
         appId = coreService.registerApplication(APP_ID_STR);
@@ -143,7 +150,9 @@ public class DefaultVirtualFlowRuleProvider extends AbstractVirtualProvider
     @Deactivate
     public void deactivate() {
         flowRuleService.removeListener(flowRuleListener);
+        flowRuleService.removeFlowRulesById(appId);
         providerRegistryService.unregisterProvider(this);
+        log.info("Stopped");
     }
 
     @Modified
@@ -155,10 +164,7 @@ public class DefaultVirtualFlowRuleProvider extends AbstractVirtualProvider
     public void applyFlowRule(NetworkId networkId, FlowRule... flowRules) {
         for (FlowRule flowRule : flowRules) {
             devirtualize(networkId, flowRule).forEach(
-                    r -> {
-                        flowRuleService.applyFlowRules(r);
-                    }
-            );
+                    r -> flowRuleService.applyFlowRules(r));
         }
     }
 
@@ -166,10 +172,7 @@ public class DefaultVirtualFlowRuleProvider extends AbstractVirtualProvider
     public void removeFlowRule(NetworkId networkId, FlowRule... flowRules) {
         for (FlowRule flowRule : flowRules) {
             devirtualize(networkId, flowRule).forEach(
-                    r -> {
-                        flowRuleService.removeFlowRules(r);
-                    }
-            );
+                    r -> flowRuleService.removeFlowRules(r));
         }
     }
 
@@ -178,20 +181,56 @@ public class DefaultVirtualFlowRuleProvider extends AbstractVirtualProvider
         checkNotNull(batch);
 
         for (FlowRuleBatchEntry fop : batch.getOperations()) {
-            devirtualize(networkId, fop.target())
-                    .forEach(f -> flowRuleService.applyFlowRules(f));
+            FlowRuleOperations.Builder builder = FlowRuleOperations.builder();
+
+            switch (fop.operator()) {
+                case ADD:
+                    devirtualize(networkId, fop.target()).forEach(builder::add);
+                    break;
+                case REMOVE:
+                    devirtualize(networkId, fop.target()).forEach(builder::remove);
+                    break;
+                case MODIFY:
+                    devirtualize(networkId, fop.target()).forEach(builder::modify);
+                    break;
+                default:
+                    break;
+            }
+
+            flowRuleService.apply(builder.build(new FlowRuleOperationsContext() {
+                @Override
+                public void onSuccess(FlowRuleOperations ops) {
+                    CompletedBatchOperation status =
+                            new CompletedBatchOperation(true,
+                                                        Sets.newConcurrentHashSet(),
+                                                        batch.deviceId());
+
+                    VirtualFlowRuleProviderService providerService =
+                            (VirtualFlowRuleProviderService) providerRegistryService
+                                    .getProviderService(networkId,
+                                                        VirtualFlowRuleProvider.class);
+                    providerService.batchOperationCompleted(batch.id(), status);
+                }
+
+                @Override
+                public void onError(FlowRuleOperations ops) {
+                    Set<FlowRule> failures = ImmutableSet.copyOf(
+                            Lists.transform(batch.getOperations(),
+                                            BatchOperationEntry::target));
+
+                    CompletedBatchOperation status =
+                            new CompletedBatchOperation(false,
+                                                        failures,
+                                                        batch.deviceId());
+
+                    VirtualFlowRuleProviderService providerService =
+                            (VirtualFlowRuleProviderService) providerRegistryService
+                                    .getProviderService(networkId,
+                                                        VirtualFlowRuleProvider.class);
+                    providerService.batchOperationCompleted(batch.id(), status);
+                }
+            }));
         }
-
-        //FIXME: check the success of the all batch operations
-        CompletedBatchOperation status =
-                new CompletedBatchOperation(true, Sets.newConcurrentHashSet(),
-                                            batch.deviceId());
-
-        VirtualFlowRuleProviderService providerService =
-                (VirtualFlowRuleProviderService) providerRegistryService
-                        .getProviderService(networkId,
-                                            VirtualFlowRuleProvider.class);
-        providerService.batchOperationCompleted(batch.id(), status);
     }
 
     public void setEmbeddingAlgorithm(InternalRoutingAlgorithm
@@ -206,7 +245,24 @@ public class DefaultVirtualFlowRuleProvider extends AbstractVirtualProvider
      * @return A flow rule for a specific virtual network
      */
     private FlowRule virtualizeFlowRule(FlowRule flowRule) {
-        return frm.getVirtualRule(flowRule);
+
+        FlowRule storedrule = frm.getVirtualRule(flowRule);
+
+        if (flowRule.reason() == FlowRule.FlowRemoveReason.NO_REASON) {
+            return storedrule;
+        } else {
+            return DefaultFlowRule.builder()
+                    .withReason(flowRule.reason())
+                    .withPriority(storedrule.priority())
+                    .forDevice(storedrule.deviceId())
+                    .forTable(storedrule.tableId())
+                    .fromApp(new DefaultApplicationId(storedrule.appId(), null))
+                    .withIdleTimeout(storedrule.timeout())
+                    .withHardTimeout(storedrule.hardTimeout())
+                    .withSelector(storedrule.selector())
+                    .withTreatment(storedrule.treatment())
+                    .build();
+        }
     }
 
     private FlowEntry virtualize(FlowEntry flowEntry) {
@@ -215,7 +271,6 @@ public class DefaultVirtualFlowRuleProvider extends AbstractVirtualProvider
                                                 flowEntry.life(),
                                                 flowEntry.packets(),
                                                 flowEntry.bytes());
-
         return vEntry;
     }
 
@@ -392,28 +447,70 @@ public class DefaultVirtualFlowRuleProvider extends AbstractVirtualProvider
         if (ingressPoint.deviceId().equals(egressPoint.deviceId()) ||
                 egressPoint.port().isLogical()) {
             //Traffic is handled inside a single physical switch
-            //No tunnel is needed.
 
             TrafficSelector.Builder selectorBuilder = DefaultTrafficSelector
                     .builder(commonSelector)
                     .matchInPort(ingressPoint.port());
 
             TrafficTreatment.Builder treatmentBuilder = DefaultTrafficTreatment
-                    .builder(commonTreatment)
-                    .setOutput(egressPoint.port());
+                    .builder(commonTreatment);
+
+            VirtualPort virtualIngressPort = vnService
+                    .getVirtualPorts(networkId, flowRule.deviceId())
+                    .stream()
+                    .filter(p -> p.realizedBy().equals(ingressPoint))
+                    .findFirst()
+                    .get();
+
+            VirtualPort virtualEgressPort = vnService
+                    .getVirtualPorts(networkId, flowRule.deviceId())
+                    .stream()
+                    .filter(p -> p.realizedBy().equals(egressPoint))
+                    .findFirst()
+                    .get();
+
+            ConnectPoint ingressCp = new ConnectPoint(virtualIngressPort.element().id(), virtualIngressPort.number());
+            ConnectPoint egressCp = new ConnectPoint(virtualEgressPort.element().id(), virtualEgressPort.number());
+
+            Optional<VirtualLink> optionalIngressLink = vnService
+                    .getVirtualLinks(networkId)
+                    .stream()
+                    .filter(l -> l.dst().equals(ingressCp))
+                    .findFirst();
+
+            Optional<VirtualLink> optionalEgressLink = vnService
+                    .getVirtualLinks(networkId)
+                    .stream()
+                    .filter(l -> l.src().equals(egressCp))
+                    .findFirst();
+
+            //Isolate traffic from different virtual networks with VLAN
+            if (!optionalIngressLink.isPresent() && !optionalEgressLink.isPresent()) {
+                treatmentBuilder.setOutput(egressPoint.port());
+            } else if (optionalIngressLink.isPresent() && !optionalEgressLink.isPresent()) {
+                selectorBuilder.matchVlanId(VlanId.vlanId(networkId.id().shortValue()));
+                treatmentBuilder.popVlan();
+                treatmentBuilder.setOutput(egressPoint.port());
+            } else if (!optionalIngressLink.isPresent() && optionalEgressLink.isPresent()) {
+                outRules.addAll(generateRulesOnPath(networkId, optionalEgressLink.get(),
+                        commonSelector, commonTreatment, flowRule));
+                treatmentBuilder.pushVlan()
+                        .setVlanId(VlanId.vlanId(networkId.id().shortValue()));
+                treatmentBuilder.setOutput(egressPoint.port());
+            } else if (optionalIngressLink.isPresent() && optionalEgressLink.isPresent()) {
+                outRules.addAll(generateRulesOnPath(networkId, optionalEgressLink.get(),
+                        commonSelector, commonTreatment, flowRule));
+                selectorBuilder.matchVlanId(VlanId.vlanId(networkId.id().shortValue()));
+                treatmentBuilder.setOutput(egressPoint.port());
+            }
 
             FlowRule.Builder ruleBuilder = DefaultFlowRule.builder()
                     .fromApp(vnService.getVirtualNetworkApplicationId(networkId))
                     .forDevice(ingressPoint.deviceId())
                     .withSelector(selectorBuilder.build())
                     .withTreatment(treatmentBuilder.build())
+                    .withIdleTimeout(flowRule.timeout())
                     .withPriority(flowRule.priority());
-
-            if (flowRule.isPermanent()) {
-                ruleBuilder.makePermanent();
-            } else {
-                ruleBuilder.makeTemporary(flowRule.timeout());
-            }
 
             FlowRule rule = ruleBuilder.build();
             frm.addIngressRule(flowRule, rule, networkId);
@@ -445,14 +542,9 @@ public class DefaultVirtualFlowRuleProvider extends AbstractVirtualProvider
                     .fromApp(vnService.getVirtualNetworkApplicationId(networkId))
                     .forDevice(ingressPoint.deviceId())
                     .withSelector(selectorBuilder.build())
+                    .withIdleTimeout(flowRule.timeout())
                     .withTreatment(treatmentBuilder.build())
                     .withPriority(flowRule.priority());
-
-            if (flowRule.isPermanent()) {
-                ruleBuilder.makePermanent();
-            } else {
-                ruleBuilder.makeTemporary(flowRule.timeout());
-            }
 
             FlowRule rule = ruleBuilder.build();
             frm.addIngressRule(flowRule, rule, networkId);
@@ -481,13 +573,8 @@ public class DefaultVirtualFlowRuleProvider extends AbstractVirtualProvider
                             .forDevice(inCp.deviceId())
                             .withSelector(selectorBuilder.build())
                             .withTreatment(treatmentBuilder.build())
+                            .withIdleTimeout(flowRule.timeout())
                             .withPriority(flowRule.priority());
-
-                    if (flowRule.isPermanent()) {
-                        ruleBuilder.makePermanent();
-                    } else {
-                        ruleBuilder.makeTemporary(flowRule.timeout());
-                    }
 
                     outRules.add(ruleBuilder.build());
                     inCp = l.dst();
@@ -508,17 +595,82 @@ public class DefaultVirtualFlowRuleProvider extends AbstractVirtualProvider
                     .forDevice(egressPoint.deviceId())
                     .withSelector(selectorBuilder.build())
                     .withTreatment(treatmentBuilder.build())
+                    .withIdleTimeout(flowRule.timeout())
                     .withPriority(flowRule.priority());
-
-            if (flowRule.isPermanent()) {
-                ruleBuilder.makePermanent();
-            } else {
-                ruleBuilder.makeTemporary(flowRule.timeout());
-            }
 
             outRules.add(ruleBuilder.build());
         }
 
+        return outRules;
+    }
+
+    /**
+     * Generate flow rules to the intermediate nodes on the physical path for a virtual link.
+     *
+     * @param networkId The virtual network identifier
+     * @param virtualLink A virtual link
+     * @param commonSelector A common traffic selector between the virtual
+     *                       and physical flow rules
+     * @param commonTreatment A common traffic treatment between the virtual
+     *                        and physical flow rules
+     * @param flowRule The virtual flow rule to be translated
+     * @return A set of flow rules for the path on physical network
+     */
+    private Set<FlowRule> generateRulesOnPath(NetworkId networkId,
+                                              VirtualLink virtualLink,
+                                              TrafficSelector commonSelector,
+                                              TrafficTreatment commonTreatment,
+                                              FlowRule flowRule) {
+
+        VirtualPort srcVirtualPort = vnService
+                .getVirtualPorts(networkId, virtualLink.src().deviceId())
+                .stream()
+                .filter(p -> p.number().equals(virtualLink.src().port()))
+                .findFirst()
+                .get();
+
+        VirtualPort dstVirtualPort = vnService
+                .getVirtualPorts(networkId, virtualLink.dst().deviceId())
+                .stream()
+                .filter(p -> p.number().equals(virtualLink.dst().port()))
+                .findFirst()
+                .get();
+        Set<FlowRule> outRules = new HashSet<>();
+        ConnectPoint srcCp = srcVirtualPort.realizedBy();
+        ConnectPoint dstCp = dstVirtualPort.realizedBy();
+
+        Path internalPath = internalRoutingAlgorithm
+                .findPath(srcCp, dstCp);
+        List<Link> links = internalPath.links();
+        if (internalPath != null && links.size() > 1) {
+            for (int i = 0; i < links.size() - 1; i++) {
+                ConnectPoint inCp = links.get(i).dst();
+                ConnectPoint outCp = links.get(i + 1).src();
+                TrafficSelector.Builder linkSelectorBuilder = DefaultTrafficSelector
+                        .builder(commonSelector)
+                        .matchVlanId(VlanId.vlanId(networkId.id().shortValue()))
+                        .matchInPort(inCp.port());
+
+                TrafficTreatment.Builder linkTreatmentBuilder = DefaultTrafficTreatment
+                        .builder(commonTreatment)
+                        .setOutput(outCp.port());
+
+                FlowRule.Builder ruleBuilder = DefaultFlowRule.builder()
+                        .fromApp(vnService.getVirtualNetworkApplicationId(networkId))
+                        .forDevice(inCp.deviceId())
+                        .withSelector(linkSelectorBuilder.build())
+                        .withTreatment(linkTreatmentBuilder.build())
+                        .withPriority(flowRule.priority());
+
+                if (flowRule.isPermanent()) {
+                    ruleBuilder.makePermanent();
+                } else {
+                    ruleBuilder.makeTemporary(flowRule.timeout());
+                }
+
+                outRules.add(ruleBuilder.build());
+            }
+        }
         return outRules;
     }
 
@@ -548,6 +700,9 @@ public class DefaultVirtualFlowRuleProvider extends AbstractVirtualProvider
                     NetworkId networkId = frm.getVirtualNetworkId(event.subject());
                     FlowEntry vEntry = getVirtualFlowEntry(event.subject());
 
+                    frm.removeFlowEntry(networkId, vEntry.deviceId(), vEntry);
+                    frm.removeFlowRule(networkId, vEntry.deviceId(), vEntry);
+
                     VirtualFlowRuleProviderService providerService =
                             (VirtualFlowRuleProviderService) providerRegistryService
                                     .getProviderService(networkId,
@@ -566,12 +721,12 @@ public class DefaultVirtualFlowRuleProvider extends AbstractVirtualProvider
                 }
             }
 
-            FlowRule vRule = virtualize(entry);
-            FlowEntry vEntry = new DefaultFlowEntry(vRule, entry.state(),
-                                                    entry.life(), entry.packets(),
-                                                    entry.bytes());
-
-            return vEntry;
+            if (entry != null) {
+                return virtualize(entry);
+            } else  {
+                return virtualize(new DefaultFlowEntry(rule,
+                                                       FlowEntry.FlowEntryState.PENDING_REMOVE));
+            }
         }
     }
 
