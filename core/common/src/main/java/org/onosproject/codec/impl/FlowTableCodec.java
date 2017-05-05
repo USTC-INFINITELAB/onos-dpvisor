@@ -19,20 +19,18 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.onosproject.codec.CodecContext;
 import org.onosproject.codec.JsonCodec;
-import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
 import org.onosproject.floodlightpof.protocol.OFMatch20;
 import org.onosproject.floodlightpof.protocol.table.OFFlowTable;
 import org.onosproject.floodlightpof.protocol.table.OFTableType;
 import org.onosproject.net.DeviceId;
-import org.onosproject.net.DeviceOFTableType;
+import org.onosproject.net.table.DeviceOFTableType;
 import org.onosproject.net.table.DefaultFlowTable;
 import org.onosproject.net.table.FlowTable;
 import org.onosproject.rest.AbstractWebResource;
 import org.onosproject.net.table.FlowTableStore;
 
 import java.util.ArrayList;
-import java.util.List;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkNotNull;

@@ -18,8 +18,6 @@ package org.onosproject.net.table;
 import org.onosproject.floodlightpof.protocol.table.OFFlowTableResource;
 import org.onosproject.floodlightpof.protocol.table.OFTableType;
 import org.onosproject.net.DeviceId;
-import org.onosproject.net.DeviceOFTableType;
-import org.onosproject.net.DeviceTableId;
 import org.onosproject.net.flow.FlowRule;
 import org.onosproject.store.Store;
 

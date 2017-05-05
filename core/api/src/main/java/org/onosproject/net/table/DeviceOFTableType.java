@@ -1,14 +1,15 @@
-package org.onosproject.net;
+package org.onosproject.net.table;
 
 import org.onosproject.floodlightpof.protocol.table.OFTableType;
+import org.onosproject.net.DeviceId;
 
 /**
- * Created by niubin on 17-4-23.
+ * OFTableType of the given deviceId.
  */
 public class DeviceOFTableType {
 
-    public DeviceId deviceId;
-    public OFTableType ofTableType;
+    private DeviceId deviceId;
+    private OFTableType ofTableType;
     public DeviceOFTableType(DeviceId deviceId, OFTableType ofTableType) {
         this.deviceId = deviceId;
         this.ofTableType = ofTableType;

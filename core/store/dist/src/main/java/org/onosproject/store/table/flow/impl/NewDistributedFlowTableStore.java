@@ -40,8 +40,8 @@ import org.onosproject.floodlightpof.protocol.table.OFTableResource;
 import org.onosproject.floodlightpof.protocol.table.OFTableType;
 import org.onosproject.mastership.MastershipService;
 import org.onosproject.net.DeviceId;
-import org.onosproject.net.DeviceOFTableType;
-import org.onosproject.net.DeviceTableId;
+import org.onosproject.net.table.DeviceOFTableType;
+import org.onosproject.net.table.DeviceTableId;
 import org.onosproject.net.device.DeviceService;
 import org.onosproject.net.flow.FlowRule;
 import org.onosproject.net.flow.TableStatisticsEntry;
@@ -686,10 +686,10 @@ public class NewDistributedFlowTableStore
     }
     @Override
     public int getGlobalTableId(DeviceOFTableType deviceOFTableType) {
-        NodeId master = mastershipService.getMasterFor(deviceOFTableType.deviceId);
+        NodeId master = mastershipService.getMasterFor(deviceOFTableType.getDeviceId());
 
         if (master == null) {
-            log.debug("Failed to getGlobalTableId: No master for {}", deviceOFTableType.deviceId);
+            log.debug("Failed to getGlobalTableId: No master for {}", deviceOFTableType.getDeviceId());
             return -1;
         }
 
@@ -699,7 +699,7 @@ public class NewDistributedFlowTableStore
         log.info("@niubin getGlobalTableId forward");
 
         log.trace("Forwarding getGlobalTableId to {},which is the primary(master) for device {}",
-                  master, deviceOFTableType.deviceId);
+                  master, deviceOFTableType.getDeviceId());
         return Tools.futureGetOrElse(clusterCommunicator.sendAndReceive(deviceOFTableType,
                 FlowTableStoreMessageSubjects.GET_NEW_GLOBAL_TABLEID,
                 SERIALIZER::encode,
@@ -711,9 +711,9 @@ public class NewDistributedFlowTableStore
     }
     @Override
     public int getFlowEntryId(DeviceTableId deviceTableId) {
-        NodeId master = mastershipService.getMasterFor(deviceTableId.deviceId);
+        NodeId master = mastershipService.getMasterFor(deviceTableId.getDeviceId());
         if (master == null) {
-            log.debug("Failed to getFLowEntryID: no master for {}", deviceTableId.deviceId);
+            log.debug("Failed to getFLowEntryID: no master for {}", deviceTableId.getDeviceId());
             return -1;
         }
 
@@ -723,7 +723,7 @@ public class NewDistributedFlowTableStore
         log.info("@niubin getFlowEntryId forward");
 
         log.trace("Forwarding getFlowEntryId to {}, which is the primary(master) for device {}",
-                  master, deviceTableId.deviceId);
+                  master, deviceTableId.getDeviceId());
         return Tools.futureGetOrElse(clusterCommunicator.sendAndReceive(deviceTableId,
                 FlowTableStoreMessageSubjects.GET_NEW_GLOBAL_ENTRYID,
                 SERIALIZER::encode,
@@ -996,8 +996,8 @@ public class NewDistributedFlowTableStore
 
         public int getGlobalFlowTableId(DeviceOFTableType deviceOFTableType) {
             int newFlowTableID = -1;
-            OFTableType tableType = deviceOFTableType.ofTableType;
-            DeviceId deviceId = deviceOFTableType.deviceId;
+            OFTableType tableType = deviceOFTableType.getOfTableType();
+            DeviceId deviceId = deviceOFTableType.getDeviceId();
 
             try {
                 OFTableType ofTableType = tableType;
@@ -1029,8 +1029,8 @@ public class NewDistributedFlowTableStore
         public int getFlowEntryId(DeviceTableId deviceTableId) {
             int newFlowEntryId = -1;
             log.info("++++ getNewFlowEntryId1");
-            DeviceId deviceId = deviceTableId.deviceId;
-            int tableId = deviceTableId.tableid;
+            DeviceId deviceId = deviceTableId.getDeviceId();
+            int tableId = deviceTableId.getTableId();
             try {
                 if (null == freeFlowEntryIds.get(deviceId)
                         || null == freeFlowEntryIds.get(deviceId).get(FlowTableId.valueOf(tableId))

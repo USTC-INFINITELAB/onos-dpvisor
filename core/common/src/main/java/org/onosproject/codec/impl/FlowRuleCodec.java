@@ -22,7 +22,7 @@ import org.onosproject.codec.JsonCodec;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
 import org.onosproject.net.DeviceId;
-import org.onosproject.net.DeviceTableId;
+import org.onosproject.net.table.DeviceTableId;
 import org.onosproject.net.flow.*;
 import org.onosproject.net.flow.criteria.Criteria;
 import org.onosproject.net.flow.criteria.Criterion;
