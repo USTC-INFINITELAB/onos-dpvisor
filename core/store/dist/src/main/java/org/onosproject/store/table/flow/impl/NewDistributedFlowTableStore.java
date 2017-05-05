@@ -696,9 +696,8 @@ public class NewDistributedFlowTableStore
         if (Objects.equals(local, master)) {
             return flowTable.getGlobalFlowTableId(deviceOFTableType);
         }
-        log.info("@niubin getGlobalTableId forward");
 
-        log.trace("Forwarding getGlobalTableId to {},which is the primary(master) for device {}",
+        log.info("Forwarding getGlobalTableId to {},which is the primary(master) for device {}",
                   master, deviceOFTableType.getDeviceId());
         return Tools.futureGetOrElse(clusterCommunicator.sendAndReceive(deviceOFTableType,
                 FlowTableStoreMessageSubjects.GET_NEW_GLOBAL_TABLEID,
@@ -720,9 +719,8 @@ public class NewDistributedFlowTableStore
         if (Objects.equals(local, master)) {
             return flowTable.getFlowEntryId(deviceTableId);
         }
-        log.info("@niubin getFlowEntryId forward");
 
-        log.trace("Forwarding getFlowEntryId to {}, which is the primary(master) for device {}",
+        log.info("Forwarding getFlowEntryId to {}, which is the primary(master) for device {}",
                   master, deviceTableId.getDeviceId());
         return Tools.futureGetOrElse(clusterCommunicator.sendAndReceive(deviceTableId,
                 FlowTableStoreMessageSubjects.GET_NEW_GLOBAL_ENTRYID,
@@ -1000,7 +998,7 @@ public class NewDistributedFlowTableStore
             DeviceId deviceId = deviceOFTableType.getDeviceId();
 
             OFTableType ofTableType = tableType;
-            log.info("@niubin getGlobalFlowTableIOFTableType getglobaltableid");
+            log.info("getGlobalFlowTableIOFTableType getglobaltableid");
             if (null == freeFlowTableIDListMap.get(deviceId)
                     || null == freeFlowTableIDListMap.get(deviceId).get(ofTableType)
                     || 0 == freeFlowTableIDListMap.get(deviceId).get(ofTableType).size()) {
@@ -1013,7 +1011,7 @@ public class NewDistributedFlowTableStore
                 log.info("get new flow table id from freeFlowTableIDListMap: {}", newFlowTableID);
             }
 
-            log.info("@niubin getGlobalTableId internal");
+            log.info("getGlobalTableId internal");
             flowEntryCount.get(deviceId).putIfAbsent(FlowTableId.valueOf(newFlowTableID), 0);
             List<Integer> ids = new ArrayList<>();
             freeFlowEntryIds.get(deviceId).putIfAbsent(FlowTableId.valueOf(newFlowTableID), ids);

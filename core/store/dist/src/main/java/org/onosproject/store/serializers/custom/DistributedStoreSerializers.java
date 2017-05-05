@@ -36,6 +36,7 @@ import org.onosproject.net.table.DefaultFlowTable;
 import org.onosproject.net.table.FlowTableBatchEntry;
 import org.onosproject.net.table.FlowTableBatchOperation;
 import org.onosproject.net.table.FlowTableId;
+
 import org.onosproject.store.impl.MastershipBasedTimestamp;
 import org.onosproject.store.impl.Timestamped;
 import org.onosproject.store.service.WallClockTimestamp;
@@ -43,7 +44,6 @@ import org.onosproject.store.serializers.KryoNamespaces;
 import org.onlab.util.KryoNamespace;
 
 public final class DistributedStoreSerializers {
-
 
     public static final int STORE_CUSTOM_BEGIN = KryoNamespaces.BEGIN_USER_CUSTOM_ID + 100;
 
@@ -56,9 +56,8 @@ public final class DistributedStoreSerializers {
             .register(Timestamped.class)
             .register(new MastershipBasedTimestampSerializer(), MastershipBasedTimestamp.class)
             .register(WallClockTimestamp.class)
-            .register(WallClockTimestamp.class)
+
             .register(FlowTableBatchEntry.class)
-            .register(FlowTableBatchEntry.FlowTableOperation.class)
             .register(FlowTableBatchEntry.FlowTableOperation.class)
             .register(FlowTableBatchOperation.class)
             .register(DefaultFlowTable.class)
