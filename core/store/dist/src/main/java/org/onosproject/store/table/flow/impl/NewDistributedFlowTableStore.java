@@ -999,23 +999,20 @@ public class NewDistributedFlowTableStore
             OFTableType tableType = deviceOFTableType.getOfTableType();
             DeviceId deviceId = deviceOFTableType.getDeviceId();
 
-            try {
-                OFTableType ofTableType = tableType;
-                log.info("@niubin getGlobalFlowTableIOFTableType getglobaltableid");
-                if (null == freeFlowTableIDListMap.get(deviceId)
-                        || null == freeFlowTableIDListMap.get(deviceId).get(ofTableType)
-                        || 0 == freeFlowTableIDListMap.get(deviceId).get(ofTableType).size()) {
+            OFTableType ofTableType = tableType;
+            log.info("@niubin getGlobalFlowTableIOFTableType getglobaltableid");
+            if (null == freeFlowTableIDListMap.get(deviceId)
+                    || null == freeFlowTableIDListMap.get(deviceId).get(ofTableType)
+                    || 0 == freeFlowTableIDListMap.get(deviceId).get(ofTableType).size()) {
 
-                    newFlowTableID = flowTableNoMap.get(deviceId).get(ofTableType);
-                    flowTableNoMap.get(deviceId).replace(ofTableType, Byte.valueOf((byte) (newFlowTableID + 1)));
-                    log.info("get new flow table id from flowTableNoMap: {}", newFlowTableID);
-                } else {
-                    newFlowTableID = freeFlowTableIDListMap.get(deviceId).get(ofTableType).remove(0);
-                    log.info("get new flow table id from freeFlowTableIDListMap: {}", newFlowTableID);
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
+                newFlowTableID = flowTableNoMap.get(deviceId).get(ofTableType);
+                flowTableNoMap.get(deviceId).replace(ofTableType, Byte.valueOf((byte) (newFlowTableID + 1)));
+                log.info("get new flow table id from flowTableNoMap: {}", newFlowTableID);
+            } else {
+                newFlowTableID = freeFlowTableIDListMap.get(deviceId).get(ofTableType).remove(0);
+                log.info("get new flow table id from freeFlowTableIDListMap: {}", newFlowTableID);
             }
+
             log.info("@niubin getGlobalTableId internal");
             flowEntryCount.get(deviceId).putIfAbsent(FlowTableId.valueOf(newFlowTableID), 0);
             List<Integer> ids = new ArrayList<>();
@@ -1031,27 +1028,25 @@ public class NewDistributedFlowTableStore
             log.info("++++ getNewFlowEntryId1");
             DeviceId deviceId = deviceTableId.getDeviceId();
             int tableId = deviceTableId.getTableId();
-            try {
-                if (null == freeFlowEntryIds.get(deviceId)
-                        || null == freeFlowEntryIds.get(deviceId).get(FlowTableId.valueOf(tableId))
-                        || 0 == freeFlowEntryIds.get(deviceId).get(FlowTableId.valueOf(tableId)).size()) {
 
-                    log.info("++++ getNewFlowEntryId2");
-                    log.info("tableid is {}" + FlowTableId.valueOf(tableId));
-                    newFlowEntryId = getFlowEntryCount(deviceId, FlowTableId.valueOf(tableId));
-                    addFlowEntryCount(deviceId, FlowTableId.valueOf(tableId));
-                    log.info("get new flow table id from flowEntryCount: {}", newFlowEntryId);
-                    int tempNext = getFlowEntryCount(deviceId, FlowTableId.valueOf(tableId));
-                    log.info("temp_next:{}", tempNext);
-                } else {
-                    log.info("++++ getNewFlowEntryId3");
-                    newFlowEntryId = freeFlowEntryIds.get(deviceId).get(FlowTableId.valueOf(tableId)).remove(0);
-                    log.info("get new flow table id from freeFlowEntryIDListMap: {}", newFlowEntryId);
+            if (null == freeFlowEntryIds.get(deviceId)
+                    || null == freeFlowEntryIds.get(deviceId).get(FlowTableId.valueOf(tableId))
+                    || 0 == freeFlowEntryIds.get(deviceId).get(FlowTableId.valueOf(tableId)).size()) {
 
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
+                log.info("++++ getNewFlowEntryId2");
+                log.info("tableid is {}" + FlowTableId.valueOf(tableId));
+                newFlowEntryId = getFlowEntryCount(deviceId, FlowTableId.valueOf(tableId));
+                addFlowEntryCount(deviceId, FlowTableId.valueOf(tableId));
+                log.info("get new flow table id from flowEntryCount: {}", newFlowEntryId);
+                int tempNext = getFlowEntryCount(deviceId, FlowTableId.valueOf(tableId));
+                log.info("temp_next:{}", tempNext);
+            } else {
+                log.info("++++ getNewFlowEntryId3");
+                newFlowEntryId = freeFlowEntryIds.get(deviceId).get(FlowTableId.valueOf(tableId)).remove(0);
+                log.info("get new flow table id from freeFlowEntryIDListMap: {}", newFlowEntryId);
+
             }
+
             return newFlowEntryId;
         }
 
