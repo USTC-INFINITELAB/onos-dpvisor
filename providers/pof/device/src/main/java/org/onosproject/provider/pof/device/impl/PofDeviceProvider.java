@@ -190,8 +190,10 @@ public class PofDeviceProvider extends AbstractProvider implements DeviceProvide
     }
 
     private void connectInitialDevices() {
+        log.info("+++++connectInitialDevices");
         for (PofSwitch sw : controller.getSwitches()) {
             try {
+                log.info("+++++connectInitialDevices: {}", sw.getStringId());
                 listener.switchAdded(new Dpid(sw.getId()));
             } catch (Exception e) {
                 log.warn("Failed initially adding {} : {}", sw.getStringId(), e.getMessage());
@@ -344,6 +346,8 @@ public class PofDeviceProvider extends AbstractProvider implements DeviceProvide
                 return;
             }
 
+            tableStore.initializeSwitchStore(did);
+
             ChassisId cId = new ChassisId(dpid.value());
 
             SparseAnnotations annotations = DefaultAnnotations.builder()
@@ -364,8 +368,6 @@ public class PofDeviceProvider extends AbstractProvider implements DeviceProvide
             providerService.updatePorts(did, buildPortDescriptions(sw));
             pushPortMetrics(dpid, sw.getPorts().values());
 
-            tableStore.initializeSwitchStore(did);
-
             PortStatsCollector psc =
                     new PortStatsCollector(sw, portStatsPollFrequency);
             psc.start();
@@ -378,7 +380,7 @@ public class PofDeviceProvider extends AbstractProvider implements DeviceProvide
         }
 
         @Override
-        public void hanndleConnectionUp(Dpid dpid){
+        public void handleConnectionUp(Dpid dpid){
 
         }
         @Override
@@ -420,7 +422,7 @@ public class PofDeviceProvider extends AbstractProvider implements DeviceProvide
 
         @Override
         public void setTableResource(Dpid dpid, OFFlowTableResource msg) {
-            log.debug("TableResource({},{})", dpid, msg.getTableResourcesMap());
+            log.info("setFlowTableNoBase for table Store with {}", dpid);
             store.setFlowTableNoBase(deviceId(uri(dpid)), msg);
         }
 

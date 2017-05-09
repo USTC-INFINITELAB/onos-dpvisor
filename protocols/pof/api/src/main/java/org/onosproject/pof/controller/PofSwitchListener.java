@@ -35,7 +35,7 @@ public interface PofSwitchListener {
      * Notify that the switch was connected successsfully.
      * @param dpid the switch where the event occurred
      */
-    void hanndleConnectionUp(Dpid dpid);
+    void handleConnectionUp(Dpid dpid);
 
     /**
      * Notify that the switch was removed.

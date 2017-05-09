@@ -539,7 +539,7 @@ public class PofControllerImpl implements PofController {
         @Override
         public void handleConnectionUp(Dpid dpid, PofSwitch sw) {
             for (PofSwitchListener l : ofSwitchListener) {
-                l.hanndleConnectionUp(dpid);
+                l.handleConnectionUp(dpid);
             }
         }
         @Override

@@ -288,35 +288,40 @@ public class FlowModBuilderVer20 extends FlowModBuilder {
             int matchFieldNum = flowTable.flowTable().getMatchFieldNum();
             List<OFMatch20> matchFieldList = flowTable.flowTable().getMatchFieldList();
             Set<Criterion> criterions = selector.criteria();
-            PofCriterion pofCriterion = (PofCriterion) criterions.iterator().next();
-            List<Criterion> list = pofCriterion.list();
-            for (int i = 0; i < matchFieldNum; i++) {
-                PofCriterion pc = (PofCriterion) list.get(i);
-                OFMatchX matchX = toMatchX(pc);
-                if (matchX == null) {
-                    log.error("parse matchX error");
-                }
-                OFMatch20 matchFieldInTable = matchFieldList.get(i);
-                if (matchX.getFieldId() == OFMatch20.METADATA_FIELD_ID) {
-                    if (matchFieldInTable.getFieldId() != OFMatch20.METADATA_FIELD_ID
-                            || !matchFieldInTable.getFieldName().equalsIgnoreCase(matchX.getFieldName())) {
-                        log.error("matchX[" + i + "] should be metadata[name= " + matchFieldInTable
-                                .getFieldName() + "]");
-                        //return false;
+
+            Criterion criterion = criterions.iterator().next();
+
+            if (criterion instanceof PofCriterion) {
+                PofCriterion pofCriterion = (PofCriterion) criterion;
+                List<Criterion> list = pofCriterion.list();
+                for (int i = 0; i < matchFieldNum; i++) {
+                    PofCriterion pc = (PofCriterion) list.get(i);
+                    OFMatchX matchX = toMatchX(pc);
+                    if (matchX == null) {
+                        log.error("parse matchX error");
                     }
-                } else {
-                    if (matchFieldInTable.getFieldId() != matchX.getFieldId()) {
-                        log.error("matchX[" + i + "] should be field[id= " + matchFieldInTable.getFieldId() + "]");
-                        //return false;
+                    OFMatch20 matchFieldInTable = matchFieldList.get(i);
+                    if (matchX.getFieldId() == OFMatch20.METADATA_FIELD_ID) {
+                        if (matchFieldInTable.getFieldId() != OFMatch20.METADATA_FIELD_ID
+                                || !matchFieldInTable.getFieldName().equalsIgnoreCase(matchX.getFieldName())) {
+                            log.error("matchX[" + i + "] should be metadata[name= " + matchFieldInTable
+                                    .getFieldName() + "]");
+                            //return false;
+                        }
+                    } else {
+                        if (matchFieldInTable.getFieldId() != matchX.getFieldId()) {
+                            log.error("matchX[" + i + "] should be field[id= " + matchFieldInTable.getFieldId() + "]");
+                            //return false;
+                        }
                     }
+
+                    matchXList.add(matchX);
                 }
 
-                matchXList.add(matchX);
-            }
-
-            if (matchXList.size() != flowTable.flowTable().getMatchFieldNum()) {
-                log.error("matchX number should be " + flowTable.flowTable().getMatchFieldNum());
-                //return false;
+                if (matchXList.size() != flowTable.flowTable().getMatchFieldNum()) {
+                    log.error("matchX number should be " + flowTable.flowTable().getMatchFieldNum());
+                    //return false;
+                }
             }
         }
 

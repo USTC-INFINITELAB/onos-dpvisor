@@ -417,7 +417,7 @@ public class PofRuleProvider extends AbstractProvider
         }
 
         @Override
-        public void hanndleConnectionUp(Dpid dpid){
+        public void handleConnectionUp(Dpid dpid){
 
         }
 

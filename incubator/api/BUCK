@@ -1,5 +1,6 @@
 COMPILE_DEPS = [
     '//lib:CORE_DEPS',
+    '//lib:floodlightpof',
 ]
 
 TEST_DEPS = [

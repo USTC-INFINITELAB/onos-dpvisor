@@ -5,6 +5,7 @@ COMPILE_DEPS = [
     '//incubator/store:onos-incubator-store',
     '//utils/rest:onlab-rest',
     '//lib:concurrent-trees',
+    '//lib:floodlightpof',
 ]
 
 TEST_DEPS = [

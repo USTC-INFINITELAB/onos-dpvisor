@@ -21,6 +21,7 @@ package org.onosproject.store.flow.impl;
  import java.util.List;
  import java.util.Map;
  import java.util.Objects;
+ import java.util.Optional;
  import java.util.Set;
  import java.util.concurrent.ExecutorService;
  import java.util.concurrent.Executors;
@@ -67,6 +68,7 @@ package org.onosproject.store.flow.impl;
  import org.onosproject.net.flow.FlowRuleStoreDelegate;
  import org.onosproject.net.flow.StoredFlowEntry;
  import org.onosproject.net.flow.TableStatisticsEntry;
+ import org.onosproject.net.flow.criteria.Criterion;
  import org.onosproject.net.table.FlowTable;
  import org.onosproject.net.table.FlowTableId;
  import org.onosproject.net.table.FlowTableStore;
@@ -453,12 +455,16 @@ public class DistributedFlowRuleStore
         }
 
         if (Objects.equals(local, master)) {
-            log.info("++++ judge whether this flowrule belongs to POF");
+            log.info("++++ judge whether this flowRule belongs to POF");
             if (deviceId.uri().getScheme().equals("pof")) {
                 FlowRule flowRule = operation.getOperations().get(0).target();
                 FlowTable flowTable = flowTableStore.getFlowTableInternal(flowRule.deviceId(),
                         FlowTableId.valueOf(flowRule.tableId()));
-                if (flowTable != null) {
+                Set<Criterion> criterions = flowRule.selector().criteria();
+                Optional<Criterion> criterionOptional = criterions.stream()
+                        .filter(criterion -> criterion.type() != Criterion.Type.POF)
+                        .findFirst();
+                if (flowTable != null && !criterionOptional.isPresent()) {
                     storeBatchInternal(operation);
                 }
             } else {

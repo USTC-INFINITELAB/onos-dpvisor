@@ -133,11 +133,10 @@ public class FlowTableManagerTest {
         registry = mgr;
 
         driverService = new TestDriverManager();
-        driverService.addDriver(new DefaultDriver("foo", ImmutableList.of(), "", "", "",
+        /*driverService.addDriver(new DefaultDriver("foo", ImmutableList.of(), "", "", "",
                                                     ImmutableMap.of(FlowTableProgrammable.class,
                                                                     TestFlowTableProgrammable.class),
-                                                    ImmutableMap.of()));
-
+                                                    ImmutableMap.of()));*/
         mgr.activate(null);
         mgr.addListener(listener);
         provider = new TestProvider(PID);

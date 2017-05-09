@@ -363,12 +363,15 @@ class OFChannelHandler extends IdleStateAwareChannelHandler {
                     //Nothing to processs
                     h.sw.startDriverHandshake();
                     if (h.sw.isDriverHandshakeComplete()) {
-                        //edited by hdy
+
+                        //this method will initialize some maps in table stores.
+                        handlePendingResourceReportMessage(h);
 
                         if (!h.sw.connectSwitch()) {
                             disconnectDuplicate(h);
                         }
-                        handlePendingResourceReportMessage(h);
+                        //this method will initialize some maps in table stores.
+                        //handlePendingResourceReportMessage(h);
                         handlePendingPortStatusMessages(h);
                         h.setState(ACTIVE);
                         h.sw.handleConnectionUp();

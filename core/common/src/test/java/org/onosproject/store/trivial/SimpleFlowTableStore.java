@@ -323,8 +323,8 @@ public class SimpleFlowTableStore
 
     public int getGlobalTableId(DeviceOFTableType deviceOFTableType) {
         int newFlowTableID = -1;
-        DeviceId deviceId = deviceOFTableType.deviceId;
-        OFTableType ofTableType = deviceOFTableType.ofTableType;
+        DeviceId deviceId = deviceOFTableType.getDeviceId();
+        OFTableType ofTableType = deviceOFTableType.getOfTableType();
         try {
 
             if (null == freeFlowTableIDListMap.get(deviceId)
