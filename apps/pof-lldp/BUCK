@@ -1,0 +1,16 @@
+COMPILE_DEPS = [
+    '//lib:CORE_DEPS',
+    '//lib:floodlightpof',
+    '//protocols/pof/api:onos-protocols-pof-api',
+]
+
+osgi_jar_with_tests (
+    deps = COMPILE_DEPS,
+)
+
+onos_app (
+    title = 'Pof Link Layer Discovery Auxiliary App',
+    category = 'Utility',
+    url = 'http://onosproject.org',
+    description = 'Pof link layer discovery auxiliary application.',
+)
