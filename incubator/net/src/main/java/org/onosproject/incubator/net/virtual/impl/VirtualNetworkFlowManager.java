@@ -9,9 +9,7 @@ import org.apache.felix.scr.annotations.Service;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
 import org.onosproject.floodlightpof.protocol.OFMatch20;
-import org.onosproject.floodlightpof.protocol.OFPortStatus;
 import org.onosproject.floodlightpof.protocol.table.OFFlowTable;
-import org.onosproject.floodlightpof.protocol.table.OFFlowTableResource;
 import org.onosproject.floodlightpof.protocol.table.OFTableType;
 //import org.onosproject.pof.controller.Dpid;
 //import org.onosproject.pof.controller.PofController;
@@ -42,7 +40,7 @@ import java.util.ArrayList;
 /**
  * Implementation of virtual network flow service
  */
-@Component(immediate = true)
+@Component(immediate = true, enabled = false)
 @Service
 public class VirtualNetworkFlowManager implements VirtualNetworkFlowService {
 
@@ -59,12 +57,12 @@ public class VirtualNetworkFlowManager implements VirtualNetworkFlowService {
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected FlowRuleService flowRuleService;
 
-    //@Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
-    //protected PofController controller;
+//    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+//    protected PofController controller;
 
     private final DeviceListener deviceListener = new InnerDeviceListener();
 
-    //private final PofSwitchListener pofSwitchListener = new InternalPofSwitchListener();
+//    private final PofSwitchListener pofSwitchListener = new InternalPofSwitchListener();
 
     private ApplicationId appId;
 
@@ -78,7 +76,7 @@ public class VirtualNetworkFlowManager implements VirtualNetworkFlowService {
         }
 
         deviceAdminService.addListener(deviceListener);
-        //controller.addListener(pofSwitchListener);
+//        controller.addListener(pofSwitchListener);
 
         log.info("Started");
     }
@@ -97,11 +95,11 @@ public class VirtualNetworkFlowManager implements VirtualNetworkFlowService {
         return 2;
     }
 
-    public int sendPofFlowTable(DeviceId deviceId) {
+    public int sendEdgeFlowTable(DeviceId deviceId) {
         int tableId = tableStore.getNewGlobalFlowTableId(deviceId, OFTableType.OF_MM_TABLE);
         log.info("globalTableId: {}", tableId);
         byte smallTableId = tableStore.parseToSmallTableId(deviceId, tableId);
-        log.info("smallTableId: {}", smallTableId);
+        log.info("test for smallTableId: {}", smallTableId);
         OFMatch20 ofMatch20= new OFMatch20();
         ofMatch20.setFieldId((short) 1);
         ofMatch20.setFieldName("test");
@@ -112,7 +110,7 @@ public class VirtualNetworkFlowManager implements VirtualNetworkFlowService {
         match20List.add(ofMatch20);
 
         OFFlowTable ofFlowTable = new OFFlowTable();
-        ofFlowTable.setTableId(smallTableId);
+        ofFlowTable.setTableId((byte) tableId);
         ofFlowTable.setTableName("EdgeTable");
         ofFlowTable.setTableSize(128);
         ofFlowTable.setTableType(OFTableType.OF_MM_TABLE);
@@ -158,7 +156,7 @@ public class VirtualNetworkFlowManager implements VirtualNetworkFlowService {
                 log.info("Device Event: time = {} type = {} event = {}",
                          event.time(), event.type(), event);
                 //device added, send default flow tables
-                sendPofFlowTable(deviceId);
+                sendEdgeFlowTable(deviceId);
                 changePorts(deviceId);
             }
         }
@@ -172,7 +170,7 @@ public class VirtualNetworkFlowManager implements VirtualNetworkFlowService {
         public void handleConnectionUp(Dpid dpid){
             DeviceId deviceId = DeviceId.deviceId((Dpid.uri(dpid)));
             //device added, send default flow tables
-            sendPofFlowTable(deviceId);
+            sendEdgeFlowTable(deviceId);
             changePorts(deviceId);
         }
         @Override
