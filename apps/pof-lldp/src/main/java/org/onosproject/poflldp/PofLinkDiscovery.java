@@ -121,6 +121,7 @@ public class PofLinkDiscovery {
                 removePofFlowTable(deviceId, 0);
             }
         }
+        controller.removeListener(listener);
         log.info("Stopped");
     }
 
