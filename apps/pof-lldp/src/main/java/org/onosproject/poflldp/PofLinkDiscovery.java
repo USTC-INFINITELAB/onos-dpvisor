@@ -26,11 +26,22 @@ import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
 import org.onosproject.floodlightpof.protocol.OFMatch20;
 import org.onosproject.floodlightpof.protocol.OFPortStatus;
+import org.onosproject.floodlightpof.protocol.action.OFAction;
 import org.onosproject.floodlightpof.protocol.table.OFFlowTable;
 import org.onosproject.floodlightpof.protocol.table.OFTableType;
 import org.onosproject.floodlightpof.protocol.table.OFFlowTableResource;
 import org.onosproject.mastership.MastershipService;
+import org.onosproject.net.flow.DefaultFlowRule;
+import org.onosproject.net.flow.DefaultTrafficSelector;
+import org.onosproject.net.flow.DefaultTrafficTreatment;
+import org.onosproject.net.flow.FlowRule;
 import org.onosproject.net.flow.FlowRuleService;
+import org.onosproject.net.flow.TrafficSelector;
+import org.onosproject.net.flow.TrafficTreatment;
+import org.onosproject.net.flow.criteria.Criteria;
+import org.onosproject.net.flow.criteria.Criterion;
+import org.onosproject.net.flow.instructions.DefaultPofActions;
+import org.onosproject.net.flow.instructions.DefaultPofInstructions;
 import org.onosproject.net.table.DefaultFlowTable;
 import org.onosproject.net.table.FlowTable;
 import org.onosproject.net.table.FlowTableId;
@@ -50,6 +61,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -104,7 +116,24 @@ public class PofLinkDiscovery {
 
             if (Objects.equals(local, master)) {
                 changePorts(deviceId);
-                sendPofFlowTables(deviceId);
+                int tableId1 = sendEtherTypeFlowTables(deviceId);
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                sendMatchEtherTypeAndGotoTableFlowEntry(deviceId, tableId1, "0000", "0000");
+                sendMatchEtherTypeAndPacketInFlowEntry(deviceId, tableId1, "88cc", "FFFF");
+                sendMatchEtherTypeAndPacketInFlowEntry(deviceId, tableId1, "8942", "FFFF");
+                //sendMatchEtherTypeAndDropFlowEntry(deviceId, tableId1, "0000", "0000");
+                int tableId2 = sendEdgeFlowTables(deviceId);
+                int tableId3 = sendVirtualFlowTables(deviceId);
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                sendMatchAllPortAndGotoTableFlowEntry(deviceId, tableId2, tableId3);
             }
         }
         controller.addListener(listener);
@@ -114,11 +143,13 @@ public class PofLinkDiscovery {
     @Deactivate
     protected void deactivate() {
 
-        for (Device device:deviceService.getAvailableDevices()) {
+        for (Device device : deviceService.getAvailableDevices()) {
             DeviceId deviceId = device.id();
             NodeId master = mastershipService.getMasterFor(deviceId);
             if (Objects.equals(local, master)) {
                 removePofFlowTable(deviceId, 0);
+                removePofFlowTable(deviceId, 1);
+                removePofFlowTable(deviceId, 2);
             }
         }
         controller.removeListener(listener);
@@ -127,7 +158,7 @@ public class PofLinkDiscovery {
 
     public void changePorts(DeviceId deviceId) {
         if (deviceId.toString().split(":")[0].equals("pof")) {
-            for (Port port:deviceService.getPorts(deviceId)) {
+            for (Port port : deviceService.getPorts(deviceId)) {
                 if (!port.annotations().value(AnnotationKeys.PORT_NAME).equals("eth0")) {
                     deviceService.changePortState(deviceId, port.number(), true);
                 }
@@ -135,7 +166,7 @@ public class PofLinkDiscovery {
         }
     }
 
-    public int sendPofFlowTables(DeviceId deviceId) {
+    public int sendEtherTypeFlowTables(DeviceId deviceId) {
         int tableId = (byte) tableStore.getNewGlobalFlowTableId(deviceId, OFTableType.OF_MM_TABLE);
         log.info("globalTableId: {}", tableId);
 
@@ -143,16 +174,16 @@ public class PofLinkDiscovery {
         log.info("smallTableId: {}", smallTableId);
         OFMatch20 ofMatch20= new OFMatch20();
         ofMatch20.setFieldId((short) 1);
-        ofMatch20.setFieldName("test");
-        ofMatch20.setOffset((short)0);
-        ofMatch20.setLength((short) 48);
+        ofMatch20.setFieldName("EtherType");
+        ofMatch20.setOffset((short)96);
+        ofMatch20.setLength((short) 16);
 
         ArrayList<OFMatch20> match20List = new ArrayList<OFMatch20>();
         match20List.add(ofMatch20);
 
         OFFlowTable ofFlowTable = new OFFlowTable();
         ofFlowTable.setTableId(smallTableId);
-        ofFlowTable.setTableName("FirstEntryTable");
+        ofFlowTable.setTableName("EtherTypeTable");
         ofFlowTable.setTableSize(128);
         ofFlowTable.setTableType(OFTableType.OF_MM_TABLE);
         ofFlowTable.setMatchFieldList(match20List);
@@ -165,6 +196,235 @@ public class PofLinkDiscovery {
         flowTableService.applyFlowTables(flowTable.build());
 
         return tableId;
+    }
+
+    public int sendEdgeFlowTables(DeviceId deviceId) {
+        int tableId = (byte) tableStore.getNewGlobalFlowTableId(deviceId, OFTableType.OF_MM_TABLE);
+        log.info("globalTableId: {}", tableId);
+
+        byte smallTableId = tableStore.parseToSmallTableId(deviceId, tableId);
+        log.info("smallTableId: {}", smallTableId);
+
+        //first is a special mac
+        /*OFMatch20 om1 = new OFMatch20();
+        om1.setFieldId((short) 1);
+        om1.setOffset((short) 48);
+        om1.setLength((short) 48);*/
+        //then is the input port
+        OFMatch20 om2 = new OFMatch20();
+        om2.setFieldId((short)0xffff);
+        om2.setOffset((short)16);
+        om2.setLength((short)8);
+
+        ArrayList<OFMatch20> match20List = new ArrayList<OFMatch20>();
+        //match20List.add(om1);
+        match20List.add(om2);
+
+        OFFlowTable ofFlowTable = new OFFlowTable();
+        ofFlowTable.setTableId(smallTableId);
+        ofFlowTable.setTableName("EdgeTable");
+        ofFlowTable.setTableSize(128);
+        ofFlowTable.setTableType(OFTableType.OF_MM_TABLE);
+        ofFlowTable.setMatchFieldList(match20List);
+
+        FlowTable.Builder flowTable = DefaultFlowTable.builder()
+                .withFlowTable(ofFlowTable)
+                .forTable(tableId)
+                .forDevice(deviceId)
+                .fromApp(appId);
+        flowTableService.applyFlowTables(flowTable.build());
+
+        return tableId;
+    }
+
+    public int sendVirtualFlowTables(DeviceId deviceId) {
+        int tableId = (byte) tableStore.getNewGlobalFlowTableId(deviceId, OFTableType.OF_MM_TABLE);
+        log.info("globalTableId: {}", tableId);
+
+        byte smallTableId = tableStore.parseToSmallTableId(deviceId, tableId);
+        log.info("smallTableId: {}", smallTableId);
+
+        //first is a special mac
+        /*OFMatch20 om1 = new OFMatch20();
+        om1.setFieldId((short) 1);
+        om1.setOffset((short) 0);
+        om1.setLength((short) 48);*/
+        //then is the input port
+        OFMatch20 om2 = new OFMatch20();
+        om2.setFieldId((short)0xffff);
+        om2.setOffset((short)16);
+        om2.setLength((short)8);
+
+        ArrayList<OFMatch20> match20List = new ArrayList<OFMatch20>();
+        //match20List.add(om1);
+        match20List.add(om2);
+
+        OFFlowTable ofFlowTable = new OFFlowTable();
+        ofFlowTable.setTableId(smallTableId);
+        ofFlowTable.setTableName("VirtualTable");
+        ofFlowTable.setTableSize(128);
+        ofFlowTable.setTableType(OFTableType.OF_MM_TABLE);
+        ofFlowTable.setMatchFieldList(match20List);
+
+        FlowTable.Builder flowTable = DefaultFlowTable.builder()
+                .withFlowTable(ofFlowTable)
+                .forTable(tableId)
+                .forDevice(deviceId)
+                .fromApp(appId);
+        flowTableService.applyFlowTables(flowTable.build());
+
+        return tableId;
+    }
+
+    int sendMatchEtherTypeAndPacketInFlowEntry(DeviceId deviceId, int tableId, String value, String mask) {
+
+        int newFlowEntryId = tableStore.getNewFlowEntryId(deviceId, tableId);
+
+        //construct selector
+        TrafficSelector.Builder pbuilder = DefaultTrafficSelector.builder();
+        ArrayList<Criterion> entryList = new ArrayList<Criterion>();
+        entryList.add(Criteria.matchOffsetLength((short)1, (short)96, (short)16, value, mask));
+        pbuilder.add(Criteria.matchOffsetLength(entryList));
+
+        //construct treatment
+        TrafficTreatment.Builder ppbuilder = DefaultTrafficTreatment.builder();
+        List<OFAction> actions = new ArrayList<OFAction>();
+        actions.add(DefaultPofActions.packetIn(0).action());
+        ppbuilder.add(DefaultPofInstructions.applyActions(actions));
+
+        TrafficSelector selector = pbuilder.build();
+        TrafficTreatment treatment = ppbuilder.build();
+
+        FlowRule flowRule = DefaultFlowRule.builder()
+                .forTable(tableId)
+                .forDevice(deviceId)
+                .withSelector(selector)
+                .withTreatment(treatment)
+                .withPriority(4000)
+                .makePermanent()
+                .withCookie(newFlowEntryId)
+                .build();
+
+        //flowRuleService.applyRule(flowRule1);
+        flowRuleService.applyFlowRules(flowRule);
+        return newFlowEntryId;
+    }
+
+    int sendMatchEtherTypeAndDropFlowEntry(DeviceId deviceId, int tableId, String value, String mask) {
+
+        int newFlowEntryId = tableStore.getNewFlowEntryId(deviceId, tableId);
+
+        //construct selector
+        TrafficSelector.Builder pbuilder = DefaultTrafficSelector.builder();
+        ArrayList<Criterion> entryList = new ArrayList<Criterion>();
+        entryList.add(Criteria.matchOffsetLength((short)1, (short)96, (short)16, value, mask));
+        pbuilder.add(Criteria.matchOffsetLength(entryList));
+
+        //construct treatment
+        TrafficTreatment.Builder ppbuilder = DefaultTrafficTreatment.builder();
+        List<OFAction> actions = new ArrayList<OFAction>();
+        actions.add(DefaultPofActions.drop(0).action());
+        ppbuilder.add(DefaultPofInstructions.applyActions(actions));
+
+        TrafficSelector selector = pbuilder.build();
+        TrafficTreatment treatment = ppbuilder.build();
+
+        FlowRule flowRule = DefaultFlowRule.builder()
+                .forTable(tableId)
+                .forDevice(deviceId)
+                .withSelector(selector)
+                .withTreatment(treatment)
+                .withPriority(0)
+                .makePermanent()
+                .withCookie(newFlowEntryId)
+                .build();
+
+        //flowRuleService.applyRule(flowRule1);
+        flowRuleService.applyFlowRules(flowRule);
+        return newFlowEntryId;
+    }
+
+    int sendMatchEtherTypeAndGotoTableFlowEntry(DeviceId deviceId, int tableId, String value, String mask) {
+
+        int newFlowEntryId = tableStore.getNewFlowEntryId(deviceId, tableId);
+
+        //first is a special mac
+        OFMatch20 om1 = new OFMatch20();
+        om1.setFieldId((short) 1);
+        om1.setOffset((short) 48);
+        om1.setLength((short) 48);
+        //then is the input port
+        OFMatch20 om2 = new OFMatch20();
+        om2.setFieldId((short)0xffff);
+        om2.setOffset((short)16);
+        om2.setLength((short)8);
+
+        ArrayList<OFMatch20> match20List = new ArrayList<OFMatch20>();
+        //match20List.add(om1);
+        //match20List.add(om2);
+
+        //construct selector
+        TrafficSelector.Builder pbuilder = DefaultTrafficSelector.builder();
+        ArrayList<Criterion> entryList = new ArrayList<Criterion>();
+        entryList.add(Criteria.matchOffsetLength((short)1, (short)96, (short)16, value, mask));
+        pbuilder.add(Criteria.matchOffsetLength(entryList));
+
+        //construct treatment
+        TrafficTreatment.Builder ppbuilder = DefaultTrafficTreatment.builder();
+        //instructions: gotoTable
+        ppbuilder.add(DefaultPofInstructions.gotoTable((byte)1, (byte)0, (short)0, match20List));
+
+        TrafficSelector selector = pbuilder.build();
+        TrafficTreatment treatment = ppbuilder.build();
+
+        FlowRule flowRule = DefaultFlowRule.builder()
+                .forTable(tableId)
+                .forDevice(deviceId)
+                .withSelector(selector)
+                .withTreatment(treatment)
+                .withPriority(0)
+                .makePermanent()
+                .withCookie(newFlowEntryId)
+                .build();
+
+        //flowRuleService.applyRule(flowRule1);
+        flowRuleService.applyFlowRules(flowRule);
+        return newFlowEntryId;
+    }
+
+    int sendMatchAllPortAndGotoTableFlowEntry(DeviceId deviceId, int tableId, int gotoTableId) {
+        int newFlowEntryId = tableStore.getNewFlowEntryId(deviceId, tableId);
+
+        ArrayList<OFMatch20> match20List = new ArrayList<OFMatch20>();
+
+        //construct selector
+        TrafficSelector.Builder pbuilder = DefaultTrafficSelector.builder();
+        ArrayList<Criterion> entryList = new ArrayList<Criterion>();
+        //entryList.add(Criteria.matchOffsetLength((short)1, (short)48, (short)48, "000000000000", "000000000000"));
+        entryList.add(Criteria.matchOffsetLength((short)0xffff, (short)16, (short)8, "00", "00"));
+        pbuilder.add(Criteria.matchOffsetLength(entryList));
+
+        //construct treatment
+        TrafficTreatment.Builder ppbuilder = DefaultTrafficTreatment.builder();
+        //instructions: gotoTable
+        ppbuilder.add(DefaultPofInstructions.gotoTable((byte)gotoTableId, (byte)0, (short)0, match20List));
+
+        TrafficSelector selector = pbuilder.build();
+        TrafficTreatment treatment = ppbuilder.build();
+
+        FlowRule flowRule = DefaultFlowRule.builder()
+                .forTable(tableId)
+                .forDevice(deviceId)
+                .withSelector(selector)
+                .withTreatment(treatment)
+                .withPriority(0)
+                .makePermanent()
+                .withCookie(newFlowEntryId)
+                .build();
+
+        //flowRuleService.applyRule(flowRule1);
+        flowRuleService.applyFlowRules(flowRule);
+        return newFlowEntryId;
     }
 
     public void removePofFlowTable(DeviceId deviceId, int tableId) {
@@ -181,7 +441,18 @@ public class PofLinkDiscovery {
         public void handleConnectionUp(Dpid dpid){
             DeviceId deviceId = DeviceId.deviceId(Dpid.uri(dpid));
             changePorts(deviceId);
-            sendPofFlowTables(deviceId);
+            int tableId1 = sendEtherTypeFlowTables(deviceId);
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            sendMatchEtherTypeAndGotoTableFlowEntry(deviceId, tableId1, "0000", "0000");
+            sendMatchEtherTypeAndPacketInFlowEntry(deviceId, tableId1, "88cc", "FFFF");
+            sendMatchEtherTypeAndPacketInFlowEntry(deviceId, tableId1, "8942", "FFFF");
+            //sendMatchEtherTypeAndDropFlowEntry(deviceId, tableId1, "0000", "0000");
+            int tableId2 = sendEdgeFlowTables(deviceId);
+            int tableId3 = sendVirtualFlowTables(deviceId);
         }
         @Override
         public void switchRemoved(Dpid dpid) {
