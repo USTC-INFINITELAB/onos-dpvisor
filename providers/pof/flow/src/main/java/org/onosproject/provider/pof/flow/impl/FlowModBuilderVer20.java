@@ -106,7 +106,7 @@ public class FlowModBuilderVer20 extends FlowModBuilder {
         if ((tableType == OFTableType.OF_LINEAR_TABLE && flowTable.flowTable()
                 .getMatchFieldNum() != 0 && matchXList != null && matchXList.size() != 0)
                 || (tableType != OFTableType.OF_LINEAR_TABLE && (flowTable.flowTable().getMatchFieldNum() == 0
-                || matchXList == null || matchXList.size() != flowTable.flowTable().getMatchFieldNum()))
+                || matchXList.isEmpty() || matchXList.size() != flowTable.flowTable().getMatchFieldNum()))
                 || insList.size() == 0 || insList == null) {
             //return FLOWENTRYID_INVALID;
             log.error("ERROR in check table in buildFlowAdd1");
@@ -170,8 +170,8 @@ public class FlowModBuilderVer20 extends FlowModBuilder {
         tableType = flowTable.flowTable().getTableType();
 
         if ((tableType == OFTableType.OF_LINEAR_TABLE && flowTable.flowTable().getMatchFieldNum() != 0
-                && matchXList != null && matchXList.size() != 0) || (tableType != OFTableType.OF_LINEAR_TABLE
-                && (flowTable.flowTable().getMatchFieldNum() == 0 || matchXList == null
+                && !matchXList.isEmpty()) || (tableType != OFTableType.OF_LINEAR_TABLE
+                && (flowTable.flowTable().getMatchFieldNum() == 0
                 || matchXList.size() != flowTable.flowTable()
                 .getMatchFieldNum())) || insList.size() == 0 || insList == null) {
             //return FLOWENTRYID_INVALID;
@@ -281,7 +281,6 @@ public class FlowModBuilderVer20 extends FlowModBuilder {
      */
     // CHECKSTYLE IGNORE MethodLength FOR NEXT 300 LINES
     protected List<OFMatchX> buildMatch() {
-        //wenjian
         List<OFMatchX> matchXList = new ArrayList<>();
         if (flowTable.flowTable().getTableType() != OFTableType.OF_LINEAR_TABLE) {
 //            log.info("++++ flowTable: " + flowTable.toString());
@@ -294,34 +293,34 @@ public class FlowModBuilderVer20 extends FlowModBuilder {
             if (criterion instanceof PofCriterion) {
                 PofCriterion pofCriterion = (PofCriterion) criterion;
                 List<Criterion> list = pofCriterion.list();
+                if (matchFieldNum != list.size()) {
+                    log.error("match field number in the entry should be {}", matchFieldNum);
+                    return new ArrayList<>();
+                }
                 for (int i = 0; i < matchFieldNum; i++) {
                     PofCriterion pc = (PofCriterion) list.get(i);
                     OFMatchX matchX = toMatchX(pc);
                     if (matchX == null) {
                         log.error("parse matchX error");
+                        return new ArrayList<>();
                     }
                     OFMatch20 matchFieldInTable = matchFieldList.get(i);
-                    if (matchX.getFieldId() == OFMatch20.METADATA_FIELD_ID) {
-                        if (matchFieldInTable.getFieldId() != OFMatch20.METADATA_FIELD_ID
-                                || !matchFieldInTable.getFieldName().equalsIgnoreCase(matchX.getFieldName())) {
+                    if (matchX.getFieldId() == OFMatch20.METADATA_FIELD_ID && matchFieldInTable.getFieldName() != null) {
+                        if (!matchFieldInTable.getFieldName().equalsIgnoreCase(matchX.getFieldName())) {
                             log.error("matchX[" + i + "] should be metadata[name= " + matchFieldInTable
                                     .getFieldName() + "]");
-                            //return false;
+                           return new ArrayList<>();
                         }
                     } else {
                         if (matchFieldInTable.getFieldId() != matchX.getFieldId()) {
                             log.error("matchX[" + i + "] should be field[id= " + matchFieldInTable.getFieldId() + "]");
-                            //return false;
+                            return new ArrayList<>();
                         }
                     }
 
                     matchXList.add(matchX);
                 }
 
-                if (matchXList.size() != flowTable.flowTable().getMatchFieldNum()) {
-                    log.error("matchX number should be " + flowTable.flowTable().getMatchFieldNum());
-                    //return false;
-                }
             }
         }
 

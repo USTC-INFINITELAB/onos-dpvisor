@@ -647,6 +647,16 @@ public final class Criteria {
     }
 
     /**
+     * creates pof criterion.
+     * @return pof criterion
+     */
+
+    public static Criterion matchOffsetLength(String fieldName, short fieldId, short offset,
+                                              short length, String value, String mask) {
+        return new PofCriterion(fieldName, fieldId, offset, length, value, mask);
+    }
+
+    /**
      * creates pof criterion List.
      * @return pof criterion
      */

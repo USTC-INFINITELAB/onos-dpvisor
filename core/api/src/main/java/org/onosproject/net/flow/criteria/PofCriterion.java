@@ -62,7 +62,7 @@ public final class PofCriterion implements Criterion {
      */
     PofCriterion(short fieldId, short offset, short length, String value, String mask) {
         this.list = null;
-        this.fieldName = "Empty";
+        this.fieldName = null;
         this.fieldId = fieldId;
         this.offset = offset;
         this.length = length;
@@ -72,7 +72,7 @@ public final class PofCriterion implements Criterion {
 
     PofCriterion(ArrayList<Criterion> list) {
         this.list = list;
-        this.fieldName = "Empty";
+        this.fieldName = null;
         this.fieldId = -1;
         this.offset = -1;
         this.length = -1;
