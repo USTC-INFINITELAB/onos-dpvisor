@@ -100,7 +100,7 @@ public class PofLinkDiscovery {
 
     private NodeId local;
 
-    private final InternalDeviceProvider listener = new InternalDeviceProvider();
+    //private final InternalDeviceProvider listener = new InternalDeviceProvider();
 
     @Activate
     protected void activate() {
@@ -136,7 +136,7 @@ public class PofLinkDiscovery {
                 sendMatchAllPortAndGotoTableFlowEntry(deviceId, tableId2, tableId3);
             }
         }
-        controller.addListener(listener);
+        //controller.addListener(listener);
         log.info("Started");
     }
 
@@ -152,7 +152,7 @@ public class PofLinkDiscovery {
                 removePofFlowTable(deviceId, 2);
             }
         }
-        controller.removeListener(listener);
+        //controller.removeListener(listener);
         log.info("Stopped");
     }
 

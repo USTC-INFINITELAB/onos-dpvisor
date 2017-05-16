@@ -70,6 +70,7 @@ import org.onosproject.net.link.LinkService;
 import org.onosproject.net.packet.PacketService;
 import org.onosproject.net.provider.AbstractListenerProviderRegistry;
 import org.onosproject.net.provider.AbstractProviderService;
+import org.onosproject.net.table.FlowTableService;
 import org.onosproject.net.topology.PathService;
 import org.onosproject.net.topology.TopologyService;
 import org.slf4j.Logger;
@@ -437,6 +438,8 @@ public class VirtualNetworkManager
                 serviceKey.serviceClass.equals(MastershipAdminService.class) ||
                 serviceKey.serviceClass.equals(MastershipTermService.class)) {
             service = new VirtualNetworkMastershipManager(this, network.id());
+        } else if(serviceKey.serviceClass.equals(FlowTableService.class)) {
+            service = new VirtualNetworkPofTableManager(this, network.id());
         } else {
             return null;
         }
