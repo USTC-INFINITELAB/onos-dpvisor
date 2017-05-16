@@ -39,6 +39,14 @@ public interface OpenstackNodeService
         GATEWAY
     }
 
+    enum NetworkMode {
+        /**
+         * VxLAN or VLAN mode.
+         */
+        VXLAN,
+        VLAN
+    }
+
     /**
      * Adds or updates a new node to the service.
      *
@@ -112,6 +120,14 @@ public interface OpenstackNodeService
     Optional<PortNumber> tunnelPort(DeviceId intBridgeId);
 
     /**
+     * Returns vlan port number of a given integration bridge device.
+     *
+     * @param intBridgeId integration bridge device id
+     * @return port number; or empty value
+     */
+    Optional<PortNumber> vlanPort(DeviceId intBridgeId);
+
+    /**
      * Returns router bridge device ID connected to a given integration bridge.
      * It returns valid value only if the node type is GATEWAY.
      *
@@ -128,6 +144,7 @@ public interface OpenstackNodeService
      * @return port number; or empty value
      */
     Optional<PortNumber> externalPort(DeviceId intBridgeId);
+
     /**
      * Returns gateway node with the given device identifier.
      *
@@ -141,9 +158,10 @@ public interface OpenstackNodeService
      * If the group does not exist in the supplied source device, creates one.
      *
      * @param srcDeviceId source device id
-     * @return The group id
+     * @param networkMode network mode
+     * @return group id
      */
-    GroupId gatewayGroupId(DeviceId srcDeviceId);
+    GroupId gatewayGroupId(DeviceId srcDeviceId, NetworkMode networkMode);
 
     /**
      * Returns the list of gateway node information with the given device identifier.

@@ -17,7 +17,6 @@ package org.onosproject.net.intent.impl.compiler;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.onlab.packet.MacAddress;
@@ -25,9 +24,11 @@ import org.onlab.packet.VlanId;
 import org.onosproject.cfg.ComponentConfigAdapter;
 import org.onosproject.core.CoreService;
 import org.onosproject.net.DefaultLink;
+import org.onosproject.net.DeviceId;
 import org.onosproject.net.FilteredConnectPoint;
 import org.onosproject.net.Link;
 import org.onosproject.net.PortNumber;
+import org.onosproject.net.domain.DomainService;
 import org.onosproject.net.flow.DefaultTrafficSelector;
 import org.onosproject.net.flow.DefaultTrafficTreatment;
 import org.onosproject.net.flow.TrafficSelector;
@@ -54,11 +55,10 @@ import static org.easymock.EasyMock.*;
 import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.nullValue;
+import static org.hamcrest.Matchers.*;
 import static org.onosproject.net.Link.Type.DIRECT;
 import static org.onosproject.net.NetTestTools.PID;
+import static org.onosproject.net.domain.DomainId.LOCAL;
 
 public class LinkCollectionIntentObjectiveCompilerTest extends AbstractLinkCollectionTest {
 
@@ -82,7 +82,12 @@ public class LinkCollectionIntentObjectiveCompilerTest extends AbstractLinkColle
         compiler.coreService = coreService;
         compiler.flowObjectiveService = flowObjectiveService;
 
-        Intent.bindIdGenerator(idGenerator);
+
+        domainService = createMock(DomainService.class);
+        expect(domainService.getDomain(anyObject(DeviceId.class))).andReturn(LOCAL).anyTimes();
+        compiler.domainService = domainService;
+
+        super.setUp();
 
         intentExtensionService = createMock(IntentExtensionService.class);
         intentExtensionService.registerCompiler(LinkCollectionIntent.class, compiler);
@@ -99,13 +104,8 @@ public class LinkCollectionIntentObjectiveCompilerTest extends AbstractLinkColle
         LinkCollectionCompiler.optimizeInstructions = false;
         LinkCollectionCompiler.copyTtl = false;
 
-        replay(coreService, intentExtensionService);
+        replay(coreService, domainService, intentExtensionService);
 
-    }
-
-    @After
-    public void tearDown() {
-        Intent.unbindIdGenerator(idGenerator);
     }
 
     /**

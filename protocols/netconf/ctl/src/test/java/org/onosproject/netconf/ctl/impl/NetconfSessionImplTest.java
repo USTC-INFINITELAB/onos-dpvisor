@@ -21,10 +21,10 @@ import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assert.assertFalse;
-import static org.onosproject.netconf.TargetConfig.RUNNING;
-import static org.onosproject.netconf.TargetConfig.CANDIDATE;
+import static org.onosproject.netconf.DatastoreId.CANDIDATE;
+import static org.onosproject.netconf.DatastoreId.RUNNING;
 
-import java.util.ArrayList;
+import java.io.File;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -35,12 +35,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.FutureTask;
 import java.util.regex.Pattern;
 
-import org.apache.sshd.SshServer;
 import org.apache.sshd.common.NamedFactory;
 import org.apache.sshd.server.Command;
-import org.apache.sshd.server.PasswordAuthenticator;
-import org.apache.sshd.server.UserAuth;
-import org.apache.sshd.server.auth.UserAuthPassword;
+import org.apache.sshd.server.SshServer;
+import org.apache.sshd.server.auth.password.PasswordAuthenticator;
 import org.apache.sshd.server.keyprovider.SimpleGeneratorHostKeyProvider;
 import org.apache.sshd.server.session.ServerSession;
 import org.junit.AfterClass;
@@ -48,10 +46,10 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.onlab.junit.TestTools;
 import org.onlab.packet.Ip4Address;
-import org.onosproject.netconf.TargetConfig;
 import org.onosproject.netconf.NetconfDeviceInfo;
 import org.onosproject.netconf.NetconfException;
 import org.onosproject.netconf.NetconfSession;
+import org.onosproject.netconf.DatastoreId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,7 +57,7 @@ import com.google.common.collect.ImmutableList;
 
 /**
  * Unit tests for NetconfSession.
- *
+ * <p>
  * Sets up an SSH Server with Apache SSHD and connects to it using 2 clients
  * Truly verifies that the NETCONF flows are compliant with a NETCONF server.
  */
@@ -77,8 +75,8 @@ public class NetconfSessionImplTest {
 
     private static final String SAMPLE_REQUEST =
             "<some-yang-element xmlns=\"some-namespace\">"
-            + "<some-child-element/>"
-            + "</some-yang-element>";
+                    + "<some-child-element/>"
+                    + "</some-yang-element>";
 
     private static final String EDIT_CONFIG_REQUEST =
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?><rpc message-id=\"6\"  "
@@ -112,9 +110,6 @@ public class NetconfSessionImplTest {
     @BeforeClass
     public static void setUp() throws Exception {
         sshServerNetconf = SshServer.setUpDefaultServer();
-        List<NamedFactory<UserAuth>> userAuthFactories = new ArrayList<>();
-        userAuthFactories.add(new UserAuthPassword.Factory());
-        sshServerNetconf.setUserAuthFactories(userAuthFactories);
         sshServerNetconf.setPasswordAuthenticator(
                 new PasswordAuthenticator() {
                     @Override
@@ -126,7 +121,9 @@ public class NetconfSessionImplTest {
                     }
                 });
         sshServerNetconf.setPort(PORT_NUMBER);
-        sshServerNetconf.setKeyPairProvider(new SimpleGeneratorHostKeyProvider(TEST_SERFILE));
+        SimpleGeneratorHostKeyProvider provider = new SimpleGeneratorHostKeyProvider();
+        provider.setFile(new File(TEST_SERFILE));
+        sshServerNetconf.setKeyPairProvider(provider);
         sshServerNetconf.setSubsystemFactories(
                 Arrays.<NamedFactory<Command>>asList(new NetconfSshdTestSubsystem.Factory()));
         sshServerNetconf.open();
@@ -166,7 +163,7 @@ public class NetconfSessionImplTest {
         assertNotNull("Incorrect sessionId", session1.getSessionId());
         try {
             assertTrue("NETCONF edit-config command failed",
-                       session1.editConfig(TargetConfig.RUNNING.toString(),
+                       session1.editConfig(DatastoreId.RUNNING,
                                            null, SAMPLE_REQUEST));
         } catch (NetconfException e) {
             e.printStackTrace();
@@ -195,7 +192,7 @@ public class NetconfSessionImplTest {
         assertNotNull("Incorrect sessionId", session1.getSessionId());
         try {
             assertFalse("NETCONF delete-config command failed",
-                        session1.deleteConfig(TargetConfig.RUNNING));
+                        session1.deleteConfig(DatastoreId.RUNNING));
         } catch (NetconfException e) {
             e.printStackTrace();
             fail("NETCONF delete-config test failed: " + e.getMessage());
@@ -209,13 +206,46 @@ public class NetconfSessionImplTest {
         assertNotNull("Incorrect sessionId", session1.getSessionId());
         try {
             assertTrue("NETCONF copy-config command failed",
-                       session1.copyConfig(TargetConfig.RUNNING.toString(),
-                                           "candidate"));
+                       session1.copyConfig(DatastoreId.RUNNING,
+                                           DatastoreId.CANDIDATE));
         } catch (NetconfException e) {
             e.printStackTrace();
-            fail("NETCONF edit-config test failed: " + e.getMessage());
+            fail("NETCONF copy-config test failed: " + e.getMessage());
         }
         log.info("Finishing copy-config async");
+    }
+
+    @Test
+    public void testCopyConfigXml() {
+        log.info("Starting copy-config XML async");
+        assertNotNull("Incorrect sessionId", session1.getSessionId());
+        try {
+            assertTrue("NETCONF copy-config command failed",
+                       session1.copyConfig(DatastoreId.RUNNING,
+                                           "<configuration><device-specific/></configuration>"));
+        } catch (NetconfException e) {
+            e.printStackTrace();
+            fail("NETCONF copy-config test failed: " + e.getMessage());
+        }
+        log.info("Finishing copy-config XML async");
+    }
+
+    // remove test when ready to dump bare XML String API.
+    @Test
+    public void testCopyConfigBareXml() {
+        log.info("Starting copy-config bare XML async");
+        assertNotNull("Incorrect sessionId", session1.getSessionId());
+        try {
+            assertTrue("NETCONF copy-config command failed",
+                       session1.copyConfig(DatastoreId.RUNNING,
+                                           "<config>"
+                                           + "<configuration><device-specific/></configuration>"
+                                         + "</config>"));
+        } catch (NetconfException e) {
+            e.printStackTrace();
+            fail("NETCONF copy-config test failed: " + e.getMessage());
+        }
+        log.info("Finishing copy-config bare XML async");
     }
 
     @Test
@@ -224,10 +254,10 @@ public class NetconfSessionImplTest {
         assertNotNull("Incorrect sessionId", session1.getSessionId());
         try {
             assertTrue("NETCONF get-config running command failed. ",
-                    GET_REPLY_PATTERN.matcher(session1.getConfig(RUNNING, SAMPLE_REQUEST)).matches());
+                       GET_REPLY_PATTERN.matcher(session1.getConfig(RUNNING, SAMPLE_REQUEST)).matches());
 
             assertTrue("NETCONF get-config candidate command failed. ",
-                    GET_REPLY_PATTERN.matcher(session1.getConfig(CANDIDATE, SAMPLE_REQUEST)).matches());
+                       GET_REPLY_PATTERN.matcher(session1.getConfig(CANDIDATE, SAMPLE_REQUEST)).matches());
 
         } catch (NetconfException e) {
             e.printStackTrace();
@@ -242,7 +272,7 @@ public class NetconfSessionImplTest {
         assertNotNull("Incorrect sessionId", session1.getSessionId());
         try {
             assertTrue("NETCONF get running command failed. ",
-                    GET_REPLY_PATTERN.matcher(session1.get(SAMPLE_REQUEST, null)).matches());
+                       GET_REPLY_PATTERN.matcher(session1.get(SAMPLE_REQUEST, null)).matches());
 
         } catch (NetconfException e) {
             e.printStackTrace();
@@ -395,9 +425,9 @@ public class NetconfSessionImplTest {
             Pattern.compile("(<\\?xml).*"
                     + "(<rpc message-id=\")[0-9]*(\") *(xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">)\\R?"
                     + "(<edit-config>)\\R?"
-                    + "(<target>\\R?((<" + TargetConfig.CANDIDATE.toString() + "/>)|"
-                                    + "(<" + TargetConfig.RUNNING.toString() + "/>)|"
-                                    + "(<" + TargetConfig.STARTUP.toString() + "/>))\\R?</target>)\\R?"
+                    + "(<target>\\R?((<" + DatastoreId.CANDIDATE.toString() + "/>)|"
+                                    + "(<" + DatastoreId.RUNNING.toString() + "/>)|"
+                                    + "(<" + DatastoreId.STARTUP.toString() + "/>))\\R?</target>)\\R?"
                     + "(<config xmlns:nc=\"urn:ietf:params:xml:ns:netconf:base:1.0\">)\\R?"
                     + ".*"
                     + "(</config>)\\R?(</edit-config>)\\R?(</rpc>)\\R?", Pattern.DOTALL);
@@ -408,9 +438,9 @@ public class NetconfSessionImplTest {
                                     + "(<rpc xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\" "
                                     + "message-id=\")[0-9]*(\">)\\R?"
                                     + "(<lock>)\\R?"
-                                    + "(<target>\\R?((<" + TargetConfig.CANDIDATE.toString() + "/>)|"
-                                    + "(<" + TargetConfig.RUNNING.toString() + "/>)|"
-                                    + "(<" + TargetConfig.STARTUP.toString() + "/>))\\R?</target>)\\R?"
+                                    + "(<target>\\R?((<" + DatastoreId.CANDIDATE.toString() + "/>)|"
+                                    + "(<" + DatastoreId.RUNNING.toString() + "/>)|"
+                                    + "(<" + DatastoreId.STARTUP.toString() + "/>))\\R?</target>)\\R?"
                                     + "(</lock>)\\R?(</rpc>)\\R?", Pattern.DOTALL);
 
     public static final Pattern UNLOCK_REQ_PATTERN =
@@ -418,32 +448,39 @@ public class NetconfSessionImplTest {
                                     + "(<rpc xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\" "
                                     + "message-id=\")[0-9]*(\">)\\R?"
                                     + "(<unlock>)\\R?"
-                                    + "(<target>\\R?((<" + TargetConfig.CANDIDATE.toString() + "/>)|"
-                                    + "(<" + TargetConfig.RUNNING.toString() + "/>)|"
-                                    + "(<" + TargetConfig.STARTUP.toString() + "/>))\\R?</target>)\\R?"
+                                    + "(<target>\\R?((<" + DatastoreId.CANDIDATE.toString() + "/>)|"
+                                    + "(<" + DatastoreId.RUNNING.toString() + "/>)|"
+                                    + "(<" + DatastoreId.STARTUP.toString() + "/>))\\R?</target>)\\R?"
                                     + "(</unlock>)\\R?(</rpc>)\\R?", Pattern.DOTALL);
 
     public static final Pattern COPY_CONFIG_REQ_PATTERN =
             Pattern.compile("(<\\?xml).*"
                     + "(<rpc xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\" message-id=\")[0-9]*(\">)\\R?"
                     + "(<copy-config>)\\R?"
-                    + "(<target>\\R?((<" + TargetConfig.CANDIDATE.toString() + "/>)|"
-                                    + "(<" + TargetConfig.RUNNING.toString() + "/>)|"
-                                    + "(<" + TargetConfig.STARTUP.toString() + "/>))\\R?</target>)\\R?"
-                                    + "(<source>)\\R?(<config>)(("
-                                    + TargetConfig.CANDIDATE.toString() + ")|("
-                                    + TargetConfig.RUNNING.toString() + ")|("
-                                    + TargetConfig.STARTUP.toString()
-                                    + "))(</config>)\\R?(</source>)\\R?"
-                                    + "(</copy-config>)\\R?(</rpc>)\\R?", Pattern.DOTALL);
+                    + "(<target>\\R?"
+                    + "("
+                        + "(<" + DatastoreId.CANDIDATE.toString() + "/>)|"
+                        + "(<" + DatastoreId.RUNNING.toString() + "/>)|"
+                        + "(<" + DatastoreId.STARTUP.toString() + "/>)"
+                    + ")\\R?"
+                    + "</target>)\\R?"
+                    + "(<source>)\\R?"
+                    + "("
+                        + "(<config>)(.*)(</config>)|"
+                        + "(<" + DatastoreId.CANDIDATE.toString() + "/>)|"
+                        + "(<" + DatastoreId.RUNNING.toString() + "/>)|"
+                        + "(<" + DatastoreId.STARTUP.toString() + "/>)"
+                    + ")\\R?"
+                    + "(</source>)\\R?"
+                    + "(</copy-config>)\\R?(</rpc>)\\R?", Pattern.DOTALL);
 
     public static final Pattern GET_CONFIG_REQ_PATTERN =
             Pattern.compile("(<\\?xml).*"
                     + "(<rpc message-id=\")[0-9]*(\"  xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">)\\R?"
                     + "(<get-config>)\\R?" + "(<source>)\\R?((<"
-                                    + TargetConfig.CANDIDATE.toString()
-                                    + "/>)|(<" + TargetConfig.RUNNING.toString()
-                                    + "/>)|(<" + TargetConfig.STARTUP.toString()
+                                    + DatastoreId.CANDIDATE.toString()
+                                    + "/>)|(<" + DatastoreId.RUNNING.toString()
+                                    + "/>)|(<" + DatastoreId.STARTUP.toString()
                                     + "/>))\\R?(</source>)\\R?"
                     + "(<filter type=\"subtree\">).*(</filter>)\\R?"
                     + "(</get-config>)\\R?(</rpc>)\\R?", Pattern.DOTALL);
@@ -463,10 +500,10 @@ public class NetconfSessionImplTest {
 
     public class NCCopyConfigCallable implements Callable<Boolean> {
         private NetconfSession session;
-        private TargetConfig target;
+        private DatastoreId target;
         private String source;
 
-        public NCCopyConfigCallable(NetconfSession session, TargetConfig target, String source) {
+        public NCCopyConfigCallable(NetconfSession session, DatastoreId target, String source) {
             this.session = session;
             this.target = target;
             this.source = source;

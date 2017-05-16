@@ -22,7 +22,7 @@
     <parent>
         <groupId>org.onosproject</groupId>
         <artifactId>onos-core-store</artifactId>
-        <version>1.10.0-SNAPSHOT</version>
+        <version>1.11.0-SNAPSHOT</version>
     </parent>
 
     <artifactId>onos-core-primitives</artifactId>
@@ -70,18 +70,18 @@
         <dependency>
             <groupId>io.atomix</groupId>
             <artifactId>atomix</artifactId>
-            <version>1.0.6</version>
+            <version>1.0.8</version>
         </dependency>
 
         <dependency>
             <groupId>io.atomix.catalyst</groupId>
             <artifactId>catalyst-netty</artifactId>
-            <version>1.2.0</version>
+            <version>1.2.1</version>
         </dependency>
         <dependency>
             <groupId>io.atomix.catalyst</groupId>
             <artifactId>catalyst-transport</artifactId>
-            <version>1.2.0</version>
+            <version>1.2.1</version>
         </dependency>
         <dependency>
             <groupId>org.onosproject</groupId>

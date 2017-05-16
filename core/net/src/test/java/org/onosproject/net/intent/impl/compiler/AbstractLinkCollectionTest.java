@@ -20,18 +20,19 @@ import com.google.common.collect.ImmutableSet;
 import org.onosproject.TestApplicationId;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
-import org.onosproject.core.IdGenerator;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.Link;
 import org.onosproject.net.ResourceGroup;
+import org.onosproject.net.domain.DomainId;
+import org.onosproject.net.domain.DomainService;
 import org.onosproject.net.flow.FlowRule;
 import org.onosproject.net.flow.TrafficSelector;
 import org.onosproject.net.flow.TrafficTreatment;
+import org.onosproject.net.intent.AbstractIntentTest;
 import org.onosproject.net.intent.Constraint;
 import org.onosproject.net.intent.IntentExtensionService;
 import org.onosproject.net.intent.LinkCollectionIntent;
-import org.onosproject.net.intent.MockIdGenerator;
 
 import java.util.Collection;
 import java.util.List;
@@ -39,26 +40,34 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.onosproject.net.NetTestTools.*;
-import static org.onosproject.net.NetTestTools.macDstTreatment;
 
 /**
  * Abstract class to hold the common variables and pieces
  * of code.
  */
-class AbstractLinkCollectionTest {
+abstract class AbstractLinkCollectionTest extends AbstractIntentTest {
 
     static final String LABEL_SELECTION = "FIRST_FIT";
     static final String LABEL = "1";
 
     final ApplicationId appId = new TestApplicationId("test");
 
+    final DomainId domain = DomainId.domainId("d1");
+
+    final DeviceId d2Id = DeviceId.deviceId("of:s2");
     final ConnectPoint d2p0 = connectPoint("s2", 0);
     final ConnectPoint d2p1 = connectPoint("s2", 1);
     final ConnectPoint d2p10 = connectPoint("s2", 10);
 
+    final DeviceId d3Id = DeviceId.deviceId("of:s3");
     final ConnectPoint d3p0 = connectPoint("s3", 0);
     final ConnectPoint d3p1 = connectPoint("s3", 1);
     final ConnectPoint d3p10 = connectPoint("s3", 10);
+
+    final DeviceId d4Id = DeviceId.deviceId("of:s4");
+    final ConnectPoint d4p0 = connectPoint("s4", 0);
+    final ConnectPoint d4p1 = connectPoint("s4", 1);
+    final ConnectPoint d4p10 = connectPoint("s4", 10);
 
     final DeviceId of1Id = DeviceId.deviceId("of:of1");
     final DeviceId of2Id = DeviceId.deviceId("of:of2");
@@ -76,6 +85,7 @@ class AbstractLinkCollectionTest {
     final ConnectPoint of4p1 = connectPoint("of4", 1);
     final ConnectPoint of4p2 = connectPoint("of4", 2);
 
+    final DeviceId d1Id = DeviceId.deviceId("of:s1");
     final ConnectPoint d1p0 = connectPoint("s1", 0);
     final ConnectPoint d1p1 = connectPoint("s1", 1);
     final ConnectPoint d1p10 = connectPoint("s1", 10);
@@ -101,6 +111,12 @@ class AbstractLinkCollectionTest {
     final Set<Link> p2pLinks = ImmutableSet.of(
             link(d1p0, d2p0),
             link(d2p1, d3p1)
+    );
+
+    final Set<Link> domainP2Plinks = ImmutableSet.of(
+            link(d1p0, d2p0),
+            link(d2p1, d4p1),
+            link(d4p0, d3p0)
     );
 
     final Set<Link> linksForSp2MpCoLoc = ImmutableSet.of(
@@ -134,9 +150,9 @@ class AbstractLinkCollectionTest {
     final List<Constraint> constraintsForMPLS = mplsConstraint();
 
     CoreService coreService;
+    DomainService domainService;
     IntentExtensionService intentExtensionService;
     IntentConfigurableRegistrator registrator;
-    IdGenerator idGenerator = new MockIdGenerator();
 
     LinkCollectionIntent intent;
 

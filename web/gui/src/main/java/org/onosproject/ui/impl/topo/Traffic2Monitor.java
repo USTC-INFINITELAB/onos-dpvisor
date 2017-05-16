@@ -20,11 +20,18 @@ package org.onosproject.ui.impl.topo;
 import org.onosproject.ui.impl.TrafficMonitorBase;
 import org.onosproject.ui.impl.topo.util.ServicesBundle;
 import org.onosproject.ui.impl.topo.util.TrafficLink;
+import org.onosproject.ui.model.topo.UiLinkId;
+import org.onosproject.ui.model.topo.UiSynthLink;
 import org.onosproject.ui.topo.Highlights;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
+
+import static org.onosproject.ui.model.topo.UiLinkId.uiLinkId;
 
 /**
  * Encapsulates the behavior of monitoring specific traffic patterns in the
@@ -54,33 +61,25 @@ public class Traffic2Monitor extends TrafficMonitorBase {
     @Override
     protected void sendAllFlowTraffic() {
         log.debug("TOPO-2-TRAFFIC: sendAllFlowTraffic");
-        Highlights h = trafficSummary(TrafficLink.StatsType.FLOW_STATS);
-
-        // TODO
+        msgHandler.sendHighlights(trafficSummary(TrafficLink.StatsType.FLOW_STATS));
     }
 
     @Override
     protected void sendAllPortTrafficBits() {
         log.debug("TOPO-2-TRAFFIC: sendAllPortTrafficBits");
-        Highlights h = trafficSummary(TrafficLink.StatsType.PORT_STATS);
-
-        // TODO
+        msgHandler.sendHighlights(trafficSummary(TrafficLink.StatsType.PORT_STATS));
     }
 
     @Override
     protected void sendAllPortTrafficPackets() {
         log.debug("TOPO-2-TRAFFIC: sendAllPortTrafficPackets");
-        Highlights h = trafficSummary(TrafficLink.StatsType.PORT_PACKET_STATS);
-
-        // TODO
+        msgHandler.sendHighlights(trafficSummary(TrafficLink.StatsType.PORT_PACKET_STATS));
     }
 
     @Override
     protected void sendClearHighlights() {
         log.debug("TOPO-2-TRAFFIC: sendClearHighlights");
-        Highlights h = new Highlights();
-
-        // TODO
+        msgHandler.sendHighlights(new Highlights());
     }
 
 
@@ -103,9 +102,30 @@ public class Traffic2Monitor extends TrafficMonitorBase {
 
     @Override
     protected Set<TrafficLink> doAggregation(Set<TrafficLink> linksWithTraffic) {
-        // TODO: figure out how to aggregate the link data...
         log.debug("Need to aggregate {} links", linksWithTraffic.size());
 
-        return linksWithTraffic;
+        // first, retrieve from the shared topology model those synth links that
+        // are part of the region currently being viewed by the user...
+        Map<UiLinkId, UiSynthLink> synthLinkMap =
+                msgHandler.retrieveRelevantSynthLinks();
+
+        // NOTE: compute Set<TrafficLink> which represents the consolidated links
+
+        Map<UiLinkId, TrafficLink> mappedByUiLinkId = new HashMap<>();
+
+        for (TrafficLink tl : linksWithTraffic) {
+            UiLinkId tlid = uiLinkId(tl.key());
+            UiSynthLink sl = synthLinkMap.get(tlid);
+            if (sl != null) {
+                UiLinkId aggrid = sl.link().id();
+                TrafficLink aggregated =
+                        mappedByUiLinkId.computeIfAbsent(aggrid, TrafficLink::new);
+                aggregated.mergeStats(tl);
+            }
+        }
+
+        Set<TrafficLink> result = new HashSet<>();
+        result.addAll(mappedByUiLinkId.values());
+        return result;
     }
 }

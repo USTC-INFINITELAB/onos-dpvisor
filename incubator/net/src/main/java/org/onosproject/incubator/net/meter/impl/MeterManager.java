@@ -189,9 +189,19 @@ public class MeterManager
     }
 
     private MeterId allocateMeterId(DeviceId deviceId) {
+        // We first query the store for any previously removed meterId that could
+        // be reused. Receiving a value (not null) already means that meters
+        // are available for the device.
+        MeterId meterid = store.firstReusableMeterId(deviceId);
+        if (meterid != null) {
+            return meterid;
+        }
+        // If there was no reusable MeterId we have to generate a new value
+        // with an upper limit in maxMeters.
         long maxMeters = store.getMaxMeters(MeterFeaturesKey.key(deviceId));
         if (maxMeters == 0L) {
-            // MeterFeatures couldn't be retrieved, trying with queryMeters
+            // MeterFeatures couldn't be retrieved, trying with queryMeters.
+            // queryMeters is implemented in FullMetersAvailable behaviour.
             maxMeters = queryMeters(deviceId);
         }
 
@@ -299,6 +309,12 @@ public class MeterManager
                 case METER_REM_REQ:
                     p.performMeterOperation(deviceId, new MeterOperation(event.subject(),
                                                                          MeterOperation.Type.REMOVE));
+                    break;
+                case METER_ADDED:
+                    log.info("Meter added {}", event.subject());
+                    break;
+                case METER_REMOVED:
+                    log.info("Meter removed {}", event.subject());
                     break;
                 default:
                     log.warn("Unknown meter event {}", event.type());

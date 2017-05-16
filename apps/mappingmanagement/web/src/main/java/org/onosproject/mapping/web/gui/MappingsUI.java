@@ -26,12 +26,11 @@ import org.onosproject.ui.UiExtension;
 import org.onosproject.ui.UiExtensionService;
 import org.onosproject.ui.UiMessageHandlerFactory;
 import org.onosproject.ui.UiView;
+import org.onosproject.ui.UiViewHidden;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
-
-import static org.onosproject.ui.UiView.Category.NETWORK;
 
 /**
  * Mechanism to stream data to the GUI.
@@ -40,7 +39,6 @@ import static org.onosproject.ui.UiView.Category.NETWORK;
 @Service(value = MappingsUI.class)
 public class MappingsUI {
     private static final String MAPPING_ID = "mapping";
-    private static final String MAPPING_TEXT = "Mapping Management";
     private static final String RES_PATH = "gui";
     private static final ClassLoader CL = MappingsUI.class.getClassLoader();
 
@@ -55,7 +53,7 @@ public class MappingsUI {
 
     // List of application views
     private final List<UiView> views = ImmutableList.of(
-            new UiView(NETWORK, MAPPING_ID, MAPPING_TEXT)
+            new UiViewHidden(MAPPING_ID)
     );
 
     // Application UI extension

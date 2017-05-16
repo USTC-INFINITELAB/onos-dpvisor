@@ -48,12 +48,18 @@
         addModel: function (data) {
             if (Object.getPrototypeOf(data) !== Object.prototype) {
                 this.models.push(data);
+                data.collection = this;
                 this._byId[data.get('id')] = data;
                 return data;
             }
 
+            if (this._byId[data.id]) {
+                return this._byId[data.id];
+            }
+
             var CollectionModel = this.model;
             var model = new CollectionModel(data, this);
+            model.collection = this;
 
             this.models.push(model);
             this._byId[data.id] = model;
@@ -96,6 +102,12 @@
         filter: function (comparator) {
             return _.filter(this.models, comparator);
         },
+        empty: function () {
+            _.map(this.models, function (m) {
+                m.remove();
+            });
+            this._reset();
+        },
         _reset: function () {
             this._byId = [];
             this.models = [];
@@ -111,7 +123,6 @@
         .factory('Topo2Collection',
         ['Topo2Model', 'FnService',
             function (_Model_, fn) {
-
                 Collection.extend = fn.extend;
                 Model = _Model_;
                 return Collection;

@@ -33,5 +33,14 @@
         <command>
             <action class="org.onosproject.openstacknetworking.cli.OpenstackSyncStateCommand"/>
         </command>
+        <command>
+            <action class="org.onosproject.openstacknetworking.cli.OpenstackSecurityGroupListCommand"/>
+        </command>
+        <command>
+            <action class="org.onosproject.openstacknetworking.cli.OpenstackPurgeRulesCommand"/>
+        </command>
+        <command>
+            <action class="org.onosproject.openstacknetworking.cli.OpenstackSyncRulesCommand"/>
+        </command>
     </command-bundle>
 </blueprint>

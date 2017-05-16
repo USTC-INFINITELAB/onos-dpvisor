@@ -55,8 +55,6 @@ import org.onosproject.net.HostLocation;
 import org.onosproject.net.Link;
 import org.onosproject.net.PortNumber;
 import org.onosproject.net.intent.Intent;
-import org.onosproject.net.intent.IntentData;
-import org.onosproject.net.intent.IntentState;
 import org.onosproject.net.intent.Key;
 import org.onosproject.store.AbstractStore;
 import org.onosproject.store.serializers.KryoNamespaces;
@@ -73,6 +71,7 @@ import org.slf4j.Logger;
 
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -125,7 +124,7 @@ public class DistributedVirtualNetworkStore
             });
 
     // Listener for virtual device events
-    private final MapEventListener<DeviceId, VirtualDevice> virtualDeviceMapListener =
+    private final MapEventListener<VirtualDeviceId, VirtualDevice> virtualDeviceMapListener =
             new InternalMapListener<>((mapEventType, virtualDevice) -> {
                 VirtualNetworkEvent.Type eventType =
                         mapEventType.equals(MapEvent.Type.INSERT)
@@ -143,8 +142,8 @@ public class DistributedVirtualNetworkStore
     private Map<TenantId, Set<NetworkId>> tenantIdNetworkIdSetMap;
 
     // Track virtual devices by device Id
-    private ConsistentMap<DeviceId, VirtualDevice> deviceIdVirtualDeviceConsistentMap;
-    private Map<DeviceId, VirtualDevice> deviceIdVirtualDeviceMap;
+    private ConsistentMap<VirtualDeviceId, VirtualDevice> deviceIdVirtualDeviceConsistentMap;
+    private Map<VirtualDeviceId, VirtualDevice> deviceIdVirtualDeviceMap;
 
     // Track device IDs by network Id
     private ConsistentMap<NetworkId, Set<DeviceId>> networkIdDeviceIdSetConsistentMap;
@@ -166,10 +165,6 @@ public class DistributedVirtualNetworkStore
     private ConsistentMap<NetworkId, Set<VirtualPort>> networkIdVirtualPortSetConsistentMap;
     private Map<NetworkId, Set<VirtualPort>> networkIdVirtualPortSetMap;
 
-    // Track intent key to intent data
-    private ConsistentMap<Key, IntentData> intentKeyIntentDataConsistentMap;
-    private Map<Key, IntentData> intentKeyIntentDataMap;
-
     // Track intent ID to TunnelIds
     private ConsistentMap<Key, Set<TunnelId>> intentKeyTunnelIdSetConsistentMap;
     private Map<Key, Set<TunnelId>> intentKeyTunnelIdSetMap;
@@ -181,6 +176,7 @@ public class DistributedVirtualNetworkStore
                            .register(VirtualNetwork.class)
                            .register(DefaultVirtualNetwork.class)
                            .register(VirtualDevice.class)
+                           .register(VirtualDeviceId.class)
                            .register(DefaultVirtualDevice.class)
                            .register(VirtualHost.class)
                            .register(DefaultVirtualHost.class)
@@ -190,7 +186,6 @@ public class DistributedVirtualNetworkStore
                            .register(DefaultVirtualPort.class)
                            .register(Device.class)
                            .register(TunnelId.class)
-                           .register(IntentData.class)
                            .register(VirtualNetworkIntent.class)
                            .register(WallClockTimestamp.class)
                            .nextId(KryoNamespaces.BEGIN_USER_CUSTOM_ID)
@@ -226,7 +221,7 @@ public class DistributedVirtualNetworkStore
                 .build();
         tenantIdNetworkIdSetMap = tenantIdNetworkIdSetConsistentMap.asJavaMap();
 
-        deviceIdVirtualDeviceConsistentMap = storageService.<DeviceId, VirtualDevice>consistentMapBuilder()
+        deviceIdVirtualDeviceConsistentMap = storageService.<VirtualDeviceId, VirtualDevice>consistentMapBuilder()
                 .withSerializer(SERIALIZER)
                 .withName("onos-deviceId-virtualdevice")
                 .withRelaxedReadConsistency()
@@ -275,13 +270,6 @@ public class DistributedVirtualNetworkStore
                 .withRelaxedReadConsistency()
                 .build();
         intentKeyTunnelIdSetMap = intentKeyTunnelIdSetConsistentMap.asJavaMap();
-
-        intentKeyIntentDataConsistentMap = storageService.<Key, IntentData>consistentMapBuilder()
-                .withSerializer(SERIALIZER)
-                .withName("onos-intentKey-intentData")
-                .withRelaxedReadConsistency()
-                .build();
-        intentKeyIntentDataMap = intentKeyIntentDataConsistentMap.asJavaMap();
 
         log.info("Started");
     }
@@ -395,17 +383,20 @@ public class DistributedVirtualNetworkStore
         return (networkIdVirtualNetworkMap.containsKey(networkId));
     }
 
-
     @Override
     public VirtualDevice addDevice(NetworkId networkId, DeviceId deviceId) {
         checkState(networkExists(networkId), "The network has not been added.");
+
         Set<DeviceId> deviceIdSet = networkIdDeviceIdSetMap.get(networkId);
         if (deviceIdSet == null) {
             deviceIdSet = new HashSet<>();
         }
+
+        checkState(!deviceIdSet.contains(deviceId), "The device already exists.");
+
         VirtualDevice virtualDevice = new DefaultVirtualDevice(networkId, deviceId);
         //TODO update both maps in one transaction.
-        deviceIdVirtualDeviceMap.put(deviceId, virtualDevice);
+        deviceIdVirtualDeviceMap.put(new VirtualDeviceId(networkId, deviceId), virtualDevice);
         deviceIdSet.add(deviceId);
         networkIdDeviceIdSetMap.put(networkId, deviceIdSet);
         return virtualDevice;
@@ -428,7 +419,7 @@ public class DistributedVirtualNetworkStore
             }
         });
 
-        if (deviceIdSet != null) {
+        if (!deviceIdSet.isEmpty()) {
             networkIdDeviceIdSetMap.compute(networkId, (id, existingDeviceIds) -> {
                 if (existingDeviceIds == null || existingDeviceIds.isEmpty()) {
                     return new HashSet<>();
@@ -437,7 +428,7 @@ public class DistributedVirtualNetworkStore
                 }
             });
 
-            deviceIdVirtualDeviceMap.remove(deviceId);
+            deviceIdVirtualDeviceMap.remove(new VirtualDeviceId(networkId, deviceId));
         }
     }
 
@@ -598,7 +589,7 @@ public class DistributedVirtualNetworkStore
             virtualPortSet = new HashSet<>();
         }
 
-        VirtualDevice device = deviceIdVirtualDeviceMap.get(deviceId);
+        VirtualDevice device = deviceIdVirtualDeviceMap.get(new VirtualDeviceId(networkId, deviceId));
         checkNotNull(device, "The device has not been created for deviceId: " + deviceId);
 
         checkState(!virtualPortExists(networkId, deviceId, portNumber),
@@ -625,7 +616,7 @@ public class DistributedVirtualNetworkStore
                         p.number().equals(portNumber)).findFirst();
         checkState(virtualPortOptional.isPresent(), "The virtual port has not been added.");
 
-        VirtualDevice device = deviceIdVirtualDeviceMap.get(deviceId);
+        VirtualDevice device = deviceIdVirtualDeviceMap.get(new VirtualDeviceId(networkId, deviceId));
         checkNotNull(device, "The device has not been created for deviceId: "
                 + deviceId);
 
@@ -641,7 +632,7 @@ public class DistributedVirtualNetworkStore
     @Override
     public void removePort(NetworkId networkId, DeviceId deviceId, PortNumber portNumber) {
         checkState(networkExists(networkId), "The network has not been added.");
-        VirtualDevice device = deviceIdVirtualDeviceMap.get(deviceId);
+        VirtualDevice device = deviceIdVirtualDeviceMap.get(new VirtualDeviceId(networkId, deviceId));
         checkNotNull(device, "The device has not been created for deviceId: "
                 + deviceId);
 
@@ -721,7 +712,8 @@ public class DistributedVirtualNetworkStore
         Set<DeviceId> deviceIdSet = networkIdDeviceIdSetMap.get(networkId);
         Set<VirtualDevice> virtualDeviceSet = new HashSet<>();
         if (deviceIdSet != null) {
-            deviceIdSet.forEach(deviceId -> virtualDeviceSet.add(deviceIdVirtualDeviceMap.get(deviceId)));
+            deviceIdSet.forEach(deviceId -> virtualDeviceSet.add(
+                    deviceIdVirtualDeviceMap.get(new VirtualDeviceId(networkId, deviceId))));
         }
         return ImmutableSet.copyOf(virtualDeviceSet);
     }
@@ -792,24 +784,6 @@ public class DistributedVirtualNetworkStore
     }
 
     @Override
-    public synchronized void addOrUpdateIntent(Intent intent, IntentState state) {
-        checkNotNull(intent, "Intent cannot be null");
-        IntentData intentData = removeIntent(intent.key());
-        if (intentData == null) {
-            intentData = new IntentData(intent, state, new WallClockTimestamp(System.currentTimeMillis()));
-        } else {
-            intentData = new IntentData(intent, state, intentData.version());
-        }
-        intentKeyIntentDataMap.put(intent.key(), intentData);
-    }
-
-    @Override
-    public IntentData removeIntent(Key intentKey) {
-        checkNotNull(intentKey, "Intent key cannot be null");
-        return intentKeyIntentDataMap.remove(intentKey);
-    }
-
-    @Override
     public void addTunnelId(Intent intent, TunnelId tunnelId) {
         // Add the tunnelId to the intent key set map
         Set<TunnelId> tunnelIdSet = intentKeyTunnelIdSetMap.remove(intent.key());
@@ -844,30 +818,6 @@ public class DistributedVirtualNetworkStore
                 }
             });
         }
-    }
-
-    @Override
-    public Set<Intent> getIntents() {
-        Set<Intent> intents = new HashSet<>();
-        intentKeyIntentDataMap.values().forEach(intentData -> intents.add(intentData.intent()));
-        return ImmutableSet.copyOf(intents);
-    }
-
-    @Override
-    public Intent getIntent(Key key) {
-        IntentData intentData = intentKeyIntentDataMap.get(key);
-        return intentData == null ? null : intentData.intent();
-    }
-
-    @Override
-    public Set<IntentData> getIntentData() {
-        return ImmutableSet.copyOf(intentKeyIntentDataMap.values());
-    }
-
-    @Override
-    public IntentData getIntentData(Key key) {
-        IntentData intentData = intentKeyIntentDataMap.get(key);
-        return intentData ==  null ? null : new IntentData(intentData);
     }
 
     /**
@@ -928,6 +878,48 @@ public class DistributedVirtualNetworkStore
             if (vnetEvent != null) {
                 notifyDelegate(vnetEvent);
             }
+        }
+    }
+
+    /**
+     * A wrapper class to isolate device id from other virtual networks.
+     */
+
+    private static class VirtualDeviceId {
+
+        NetworkId networkId;
+        DeviceId deviceId;
+
+        public VirtualDeviceId(NetworkId networkId, DeviceId deviceId) {
+            this.networkId = networkId;
+            this.deviceId = deviceId;
+        }
+
+        public NetworkId getNetworkId() {
+            return networkId;
+        }
+
+        public DeviceId getDeviceId() {
+            return deviceId;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(networkId, deviceId);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+
+            if (obj instanceof VirtualDeviceId) {
+                VirtualDeviceId that = (VirtualDeviceId) obj;
+                return this.deviceId.equals(that.deviceId) &&
+                        this.networkId.equals(that.networkId);
+            }
+            return false;
         }
     }
 }

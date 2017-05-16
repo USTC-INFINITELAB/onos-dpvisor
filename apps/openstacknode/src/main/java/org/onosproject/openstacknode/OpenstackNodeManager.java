@@ -17,6 +17,7 @@ package org.onosproject.openstacknode;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
@@ -82,7 +83,6 @@ import org.osgi.service.component.ComponentContext;
 import org.slf4j.Logger;
 
 import java.util.Dictionary;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -98,6 +98,7 @@ import static org.onosproject.net.AnnotationKeys.PORT_NAME;
 import static org.onosproject.net.Device.Type.SWITCH;
 import static org.onosproject.net.behaviour.TunnelDescription.Type.VXLAN;
 import static org.onosproject.openstacknode.Constants.*;
+import static org.onosproject.openstacknode.OpenstackNode.getUpdatedNode;
 import static org.onosproject.openstacknode.OpenstackNodeEvent.NodeState.*;
 import static org.slf4j.LoggerFactory.getLogger;
 
@@ -236,8 +237,10 @@ public final class OpenstackNodeManager extends ListenerRegistry<OpenstackNodeEv
 
     @Override
     public void addOrUpdateNode(OpenstackNode node) {
-        nodeStore.put(node.hostname(),
-                OpenstackNode.getUpdatedNode(node, nodeState(node)));
+        nodeStore.computeIf(node.hostname(),
+                v -> v == null || (!v.equals(node) || v.state() != COMPLETE),
+                (k, v) -> getUpdatedNode(node, nodeState(node))
+        );
     }
 
     @Override
@@ -294,7 +297,7 @@ public final class OpenstackNodeManager extends ListenerRegistry<OpenstackNodeEv
         process(new OpenstackNodeEvent(COMPLETE, node));
         switch (node.type()) {
             case COMPUTE:
-                selectGroupHandler.createGatewayGroup(node.intBridge(), gatewayNodes());
+                selectGroupHandler.createGatewayGroup(node, gatewayNodes());
                 break;
             case GATEWAY:
                 updateGatewayGroup(node, true);
@@ -344,6 +347,17 @@ public final class OpenstackNodeManager extends ListenerRegistry<OpenstackNodeEv
     }
 
     @Override
+    public Optional<PortNumber> vlanPort(DeviceId intBridgeId) {
+        Optional<String> vlanPortName = nodeByDeviceId(intBridgeId).vlanPort();
+
+        return deviceService.getPorts(intBridgeId).stream()
+                .filter(p -> p.annotations().value(PORT_NAME).equals(vlanPortName.get()) &&
+                        p.isEnabled())
+                .map(Port::number).findFirst();
+
+    }
+
+    @Override
     public Optional<DeviceId> routerBridge(DeviceId intBridgeId) {
         OpenstackNode node = nodeByDeviceId(intBridgeId);
         if (node == null || node.type().equals(NodeType.COMPUTE)) {
@@ -372,12 +386,15 @@ public final class OpenstackNodeManager extends ListenerRegistry<OpenstackNodeEv
     }
 
     @Override
-    public synchronized GroupId gatewayGroupId(DeviceId srcDeviceId) {
-        GroupKey groupKey = selectGroupHandler.getGroupKey(srcDeviceId);
+    public synchronized GroupId gatewayGroupId(DeviceId srcDeviceId, NetworkMode networkMode) {
+        GroupKey groupKey = selectGroupHandler.groupKey(srcDeviceId, networkMode);
         Group group = groupService.getGroup(srcDeviceId, groupKey);
+
         if (group == null) {
             log.info("Created gateway group for {}", srcDeviceId);
-            return selectGroupHandler.createGatewayGroup(srcDeviceId, gatewayNodes());
+            selectGroupHandler.createGatewayGroup(nodeByDeviceId(srcDeviceId), gatewayNodes());
+
+            return groupService.getGroup(srcDeviceId, selectGroupHandler.groupKey(srcDeviceId, networkMode)).id();
         } else {
             return group.id();
         }
@@ -411,13 +428,26 @@ public final class OpenstackNodeManager extends ListenerRegistry<OpenstackNodeEv
                 .stream()
                 .map(Versioned::value)
                 .filter(node -> node.type().equals(NodeType.COMPUTE))
+                .filter(node -> node.dataIp().isPresent())
                 .filter(node -> node.state().equals(COMPLETE))
-                .forEach(node -> {
-                    selectGroupHandler.updateGatewayGroupBuckets(node.intBridge(),
-                            ImmutableList.of(gatewayNode),
-                            isInsert);
-                    log.trace("Updated gateway group on {}", node.intBridge());
+                .forEach(computeNode -> {
+                    selectGroupHandler.updateGatewayGroupBuckets(computeNode,
+                            ImmutableList.of(gatewayNode), NetworkMode.VXLAN, isInsert);
+                    log.trace("Updated gateway group on {} for vxlan mode", computeNode.intBridge());
                 });
+
+        nodeStore.values()
+                .stream()
+                .map(Versioned::value)
+                .filter(node -> node.type().equals(NodeType.COMPUTE))
+                .filter(node -> node.vlanPort().isPresent())
+                .filter(node -> node.state().equals(COMPLETE))
+                .forEach(computeNode -> {
+                    selectGroupHandler.updateGatewayGroupBuckets(computeNode,
+                            ImmutableList.of(gatewayNode), NetworkMode.VLAN, isInsert);
+                    log.trace("Updated gateway group on {} for vlan mode", computeNode.intBridge());
+                });
+
     }
 
     private void initNode(OpenstackNode node) {
@@ -427,10 +457,7 @@ public final class OpenstackNodeManager extends ListenerRegistry<OpenstackNodeEv
     }
 
     private void setNodeState(OpenstackNode node, NodeState newState) {
-        if (node.state() != newState) {
-            log.debug("Changed {} state: {}", node.hostname(), newState);
-            nodeStore.put(node.hostname(), OpenstackNode.getUpdatedNode(node, newState));
-        }
+        nodeStore.put(node.hostname(), getUpdatedNode(node, newState));
     }
 
     private NodeState nodeState(OpenstackNode node) {
@@ -470,9 +497,7 @@ public final class OpenstackNodeManager extends ListenerRegistry<OpenstackNodeEv
 
         BridgeConfig bridgeConfig =  device.as(BridgeConfig.class);
         return bridgeConfig.getPorts().stream()
-                .filter(port -> port.annotations().value(PORT_NAME).equals(ifaceName))
-                .findAny()
-                .isPresent();
+                .anyMatch(port -> port.annotations().value(PORT_NAME).equals(ifaceName));
     }
 
     private boolean isBridgeCreated(DeviceId deviceId, String bridgeName) {
@@ -483,9 +508,7 @@ public final class OpenstackNodeManager extends ListenerRegistry<OpenstackNodeEv
 
         BridgeConfig bridgeConfig =  device.as(BridgeConfig.class);
         return bridgeConfig.getBridges().stream()
-                .filter(bridge -> bridge.name().equals(bridgeName))
-                .findAny()
-                .isPresent();
+                .anyMatch(bridge -> bridge.name().equals(bridgeName));
     }
 
     private void createBridge(OpenstackNode node, String bridgeName, DeviceId deviceId) {
@@ -623,7 +646,7 @@ public final class OpenstackNodeManager extends ListenerRegistry<OpenstackNodeEv
     private Set<String> systemIfaces(OpenstackNode node) {
         Set<String> ifaces = Sets.newHashSet();
         node.dataIp().ifPresent(ip -> ifaces.add(DEFAULT_TUNNEL));
-        node.vlanPort().ifPresent(p -> ifaces.add(p));
+        node.vlanPort().ifPresent(ifaces::add);
         if (node.type().equals(NodeType.GATEWAY)) {
             ifaces.add(PATCH_INTG_BRIDGE);
             ifaces.add(PATCH_ROUT_BRIDGE);
@@ -780,7 +803,7 @@ public final class OpenstackNodeManager extends ListenerRegistry<OpenstackNodeEv
             return;
         }
 
-        Map<String, OpenstackNode> prevNodeMap = new HashMap(nodeStore.asJavaMap());
+        Map<String, OpenstackNode> prevNodeMap = Maps.newHashMap(nodeStore.asJavaMap());
         config.openstackNodes().forEach(node -> {
             prevNodeMap.remove(node.hostname());
             addOrUpdateNode(node);

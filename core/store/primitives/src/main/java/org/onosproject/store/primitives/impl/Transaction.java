@@ -25,6 +25,8 @@ import org.onosproject.store.service.Transactional;
 import org.onosproject.store.service.Version;
 import org.onosproject.store.service.TransactionContext;
 import org.onosproject.store.service.TransactionException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
@@ -105,10 +107,12 @@ public class Transaction<T> {
     private static final String TX_INACTIVE_ERROR = "transaction is not active";
     private static final String TX_UNPREPARED_ERROR = "transaction has not been prepared";
 
+    protected final Logger log = LoggerFactory.getLogger(getClass());
     protected final TransactionId transactionId;
     protected final Transactional<T> transactionalObject;
     private final AtomicBoolean open = new AtomicBoolean();
     private volatile State state = State.ACTIVE;
+    private volatile Version lock;
 
     public Transaction(TransactionId transactionId, Transactional<T> transactionalObject) {
         this.transactionId = transactionId;
@@ -190,8 +194,13 @@ public class Transaction<T> {
      * @return a completable future to be completed once the transaction has been started
      */
     public CompletableFuture<Version> begin() {
+        log.debug("Beginning transaction {} for {}", transactionId, transactionalObject);
         open();
-        return transactionalObject.begin(transactionId);
+        return transactionalObject.begin(transactionId).thenApply(lock -> {
+            this.lock = lock;
+            log.trace("Transaction lock acquired: {}", lock);
+            return lock;
+        });
     }
 
     /**
@@ -208,8 +217,11 @@ public class Transaction<T> {
     public CompletableFuture<Boolean> prepare(List<T> updates) {
         checkOpen();
         checkActive();
+        log.debug("Preparing transaction {} for {}", transactionId, transactionalObject);
+        Version lock = this.lock;
+        checkState(lock != null, TX_INACTIVE_ERROR);
         setState(State.PREPARING);
-        return transactionalObject.prepare(new TransactionLog<T>(transactionId, updates))
+        return transactionalObject.prepare(new TransactionLog<T>(transactionId, lock.value(), updates))
                 .thenApply(succeeded -> {
                     setState(State.PREPARED);
                     return succeeded;
@@ -228,8 +240,11 @@ public class Transaction<T> {
     public CompletableFuture<Boolean> prepareAndCommit(List<T> updates) {
         checkOpen();
         checkActive();
+        log.debug("Preparing and committing transaction {} for {}", transactionId, transactionalObject);
+        Version lock = this.lock;
+        checkState(lock != null, TX_INACTIVE_ERROR);
         setState(State.PREPARING);
-        return transactionalObject.prepareAndCommit(new TransactionLog<T>(transactionId, updates))
+        return transactionalObject.prepareAndCommit(new TransactionLog<T>(transactionId, lock.value(), updates))
                 .thenApply(succeeded -> {
                     setState(State.COMMITTED);
                     return succeeded;
@@ -247,6 +262,7 @@ public class Transaction<T> {
     public CompletableFuture<Void> commit() {
         checkOpen();
         checkPrepared();
+        log.debug("Committing transaction {} for {}", transactionId, transactionalObject);
         setState(State.COMMITTING);
         return transactionalObject.commit(transactionId).thenRun(() -> {
             setState(State.COMMITTED);
@@ -263,6 +279,7 @@ public class Transaction<T> {
     public CompletableFuture<Void> rollback() {
         checkOpen();
         checkPrepared();
+        log.debug("Rolling back transaction {} for {}", transactionId, transactionalObject);
         setState(State.ROLLING_BACK);
         return transactionalObject.rollback(transactionId).thenRun(() -> {
             setState(State.ROLLED_BACK);

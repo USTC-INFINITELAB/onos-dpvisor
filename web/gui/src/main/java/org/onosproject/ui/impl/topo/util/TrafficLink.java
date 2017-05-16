@@ -19,6 +19,7 @@ package org.onosproject.ui.impl.topo.util;
 import org.onosproject.net.Link;
 import org.onosproject.net.LinkKey;
 import org.onosproject.net.statistic.Load;
+import org.onosproject.ui.model.topo.UiLinkId;
 import org.onosproject.ui.topo.BiLink;
 import org.onosproject.ui.topo.LinkHighlight;
 import org.onosproject.ui.topo.LinkHighlight.Flavor;
@@ -29,6 +30,7 @@ import org.onosproject.ui.topo.TopoUtils.ValueLabel;
 import java.util.HashSet;
 import java.util.Set;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static org.onosproject.ui.topo.LinkHighlight.Flavor.NO_HIGHLIGHT;
 import static org.onosproject.ui.topo.LinkHighlight.Flavor.PRIMARY_HIGHLIGHT;
 import static org.onosproject.ui.topo.LinkHighlight.Flavor.SECONDARY_HIGHLIGHT;
@@ -67,6 +69,86 @@ public class TrafficLink extends BiLink {
      */
     public TrafficLink(LinkKey key, Link link) {
         super(key, link);
+    }
+
+
+    /**
+     * Returns an "empty" traffic link (one with no underlying links or stats)
+     * with the given identifier. This is useful when we want to aggregate
+     * stats from other links into a single entity (such as a region-region
+     * link reporting the stats for the links that compose it).
+     *
+     * @param id the link identifier
+     */
+    public TrafficLink(UiLinkId id) {
+        super(id);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        TrafficLink that = (TrafficLink) o;
+
+        return bytes == that.bytes && rate == that.rate &&
+                flows == that.flows && hasTraffic == that.hasTraffic &&
+                isOptical == that.isOptical && antMarch == that.antMarch &&
+                taggedFlavor == that.taggedFlavor && mods.equals(that.mods);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = (int) (bytes ^ (bytes >>> 32));
+        result = 31 * result + (int) (rate ^ (rate >>> 32));
+        result = 31 * result + (int) (flows ^ (flows >>> 32));
+        result = 31 * result + taggedFlavor.hashCode();
+        result = 31 * result + (hasTraffic ? 1 : 0);
+        result = 31 * result + (isOptical ? 1 : 0);
+        result = 31 * result + (antMarch ? 1 : 0);
+        result = 31 * result + mods.hashCode();
+        return result;
+    }
+
+    @Override
+    public String toString() {
+        return toStringHelper(this)
+                .add("linkId", linkId())
+                .add("bytes", bytes)
+                .add("rate", rate)
+                .add("flows", flows)
+                .toString();
+    }
+
+    /**
+     * Returns the count of bytes.
+     *
+     * @return the byte count
+     */
+    public long bytes() {
+        return bytes;
+    }
+
+    /**
+     * Returns the rate.
+     *
+     * @return the rate
+     */
+    public long rate() {
+        return rate;
+    }
+
+    /**
+     * Returns the flows.
+     *
+     * @return flow count
+     */
+    public long flows() {
+        return flows;
     }
 
     /**
@@ -148,6 +230,18 @@ public class TrafficLink extends BiLink {
     public void addFlows(int count) {
         this.flows += count;
     }
+
+    /**
+     * Merges the load recorded on the given traffic link into this one.
+     *
+     * @param other the other traffic link
+     */
+    public void mergeStats(TrafficLink other) {
+        this.bytes += other.bytes;
+        this.rate += other.rate;
+        this.flows += other.flows;
+    }
+
 
     @Override
     public LinkHighlight highlight(Enum<?> type) {

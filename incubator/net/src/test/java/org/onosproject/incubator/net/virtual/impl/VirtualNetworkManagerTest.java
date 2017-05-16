@@ -70,9 +70,7 @@ import org.onosproject.net.flowobjective.FlowObjectiveService;
 import org.onosproject.net.group.GroupService;
 import org.onosproject.net.host.HostService;
 import org.onosproject.net.intent.FakeIntentManager;
-import org.onosproject.net.intent.Intent;
 import org.onosproject.net.intent.IntentService;
-import org.onosproject.net.intent.IntentState;
 import org.onosproject.net.intent.Key;
 import org.onosproject.net.intent.MockIdGenerator;
 import org.onosproject.net.intent.TestableIntentService;
@@ -83,11 +81,11 @@ import org.onosproject.net.topology.Topology;
 import org.onosproject.net.topology.TopologyService;
 import org.onosproject.store.service.TestStorageService;
 
-import java.util.Collection;
-import java.util.List;
 import java.util.ArrayList;
-import java.util.Set;
+import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.Assert.*;
@@ -107,7 +105,6 @@ public class VirtualNetworkManagerTest extends VirtualNetworkTestUtil {
     private TestListener listener = new TestListener();
     private TestableIntentService intentService = new FakeIntentManager();
     private TopologyService topologyService;
-    private IdGenerator idGenerator = new MockIdGenerator();
 
     private ConnectPoint cp6;
     private ConnectPoint cp7;
@@ -117,8 +114,7 @@ public class VirtualNetworkManagerTest extends VirtualNetworkTestUtil {
     @Before
     public void setUp() throws Exception {
         virtualNetworkManagerStore = new DistributedVirtualNetworkStore();
-        Intent.unbindIdGenerator(idGenerator);
-        Intent.bindIdGenerator(idGenerator);
+        MockIdGenerator.cleanBind();
 
         coreService = new TestCoreService();
         TestUtils.setField(virtualNetworkManagerStore, "coreService", coreService);
@@ -145,7 +141,7 @@ public class VirtualNetworkManagerTest extends VirtualNetworkTestUtil {
         manager.removeListener(listener);
         manager.deactivate();
         NetTestTools.injectEventDispatcher(manager, null);
-        Intent.unbindIdGenerator(idGenerator);
+        MockIdGenerator.cleanBind();
     }
 
     /**
@@ -685,57 +681,6 @@ public class VirtualNetworkManagerTest extends VirtualNetworkTestUtil {
         Set<VirtualNetwork> virtualNetworks = manager.getVirtualNetworks(TenantId.tenantId(tenantIdValue1));
         assertNotNull("The virtual network set should not be null", virtualNetworks);
         assertTrue("The virtual network set should be empty.", virtualNetworks.isEmpty());
-    }
-
-
-    /**
-     * Tests the addOrUpdateIntent() method in the store with a null intent.
-     */
-    @Test(expected = NullPointerException.class)
-    public void testAddOrUpdateNullIntent() {
-        manager.store.addOrUpdateIntent(null, null);
-    }
-
-    /**
-     * Tests the removeIntent() method in the store with a null intent key.
-     */
-    @Test(expected = NullPointerException.class)
-    public void testRemoveNullIntentKey() {
-        manager.store.removeIntent(null);
-    }
-
-    /**
-     * Tests the addOrUpdateIntent(), getIntents(), getIntent(), removeIntent() methods with the store.
-     */
-    @Test
-    public void testAddOrUpdateIntent() {
-        manager.registerTenantId(TenantId.tenantId(tenantIdValue1));
-        VirtualNetwork virtualNetwork =
-                manager.createVirtualNetwork(TenantId.tenantId(tenantIdValue1));
-        ConnectPoint cp1 = new ConnectPoint(DID1, P1);
-        ConnectPoint cp2 = new ConnectPoint(DID2, P1);
-
-        VirtualNetworkIntent virtualIntent = VirtualNetworkIntent.builder()
-                .networkId(virtualNetwork.id())
-                .key(Key.of("Test", APP_ID))
-                .appId(APP_ID)
-                .ingressPoint(cp1)
-                .egressPoint(cp2)
-                .build();
-
-        // Add the intent to the store.
-        manager.store.addOrUpdateIntent(virtualIntent, IntentState.INSTALL_REQ);
-        assertEquals("The intent size should match.", 1,
-                     manager.store.getIntents().size());
-        assertNotNull("The intent should not be null.",
-                      manager.store.getIntent(virtualIntent.key()));
-
-        // remove the intent from the store.
-        manager.store.removeIntent(virtualIntent.key());
-        assertTrue("The intents should be empty.",
-                   manager.store.getIntents().isEmpty());
-        assertNull("The intent should be null.",
-                   manager.store.getIntent(virtualIntent.key()));
     }
 
     /**

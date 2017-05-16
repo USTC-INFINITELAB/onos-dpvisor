@@ -24,6 +24,7 @@ import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.onlab.packet.Ethernet;
 import org.onlab.packet.IpAddress;
 import org.onlab.packet.MacAddress;
+import org.onlab.packet.VlanId;
 import org.onosproject.cluster.ClusterService;
 import org.onosproject.cluster.LeadershipService;
 import org.onosproject.cluster.NodeId;
@@ -44,12 +45,12 @@ import org.onosproject.openstacknetworking.api.OpenstackRouterEvent;
 import org.onosproject.openstacknetworking.api.OpenstackRouterListener;
 import org.onosproject.openstacknetworking.api.OpenstackRouterService;
 import org.onosproject.openstacknetworking.api.OpenstackNetworkService;
-import org.onosproject.openstacknode.OpenstackNode;
 import org.onosproject.openstacknode.OpenstackNodeEvent;
 import org.onosproject.openstacknode.OpenstackNodeListener;
 import org.onosproject.openstacknode.OpenstackNodeService;
 import org.openstack4j.model.network.NetFloatingIP;
 import org.openstack4j.model.network.Network;
+import org.openstack4j.model.network.NetworkType;
 import org.openstack4j.model.network.Port;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -73,6 +74,7 @@ public class OpenstackRoutingFloatingIpHandler {
     private final Logger log = LoggerFactory.getLogger(getClass());
 
     private static final String ERR_FLOW = "Failed set flows for floating IP %s: ";
+    private static final String ERR_UNSUPPORTED_NET_TYPE = "Unsupported network type";
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected CoreService coreService;
@@ -130,28 +132,6 @@ public class OpenstackRoutingFloatingIpHandler {
         log.info("Stopped");
     }
 
-    private void floatingIpUpdated(NetFloatingIP floatingIp, String portId) {
-        Port osPort = osNetworkService.port(portId);
-        if (osPort == null) {
-            final String error = String.format(ERR_FLOW + "no port(%s) exists",
-                    floatingIp.getFloatingIpAddress(),
-                    floatingIp.getPortId());
-            throw new IllegalStateException(error);
-        }
-
-        if (Strings.isNullOrEmpty(floatingIp.getPortId())) {
-            setFloatingIpRules(floatingIp, osPort, false);
-            log.info("Disassociated floating IP:{} from fixed IP:{}",
-                    floatingIp.getFloatingIpAddress(),
-                    osPort.getFixedIps());
-        } else {
-            setFloatingIpRules(floatingIp, osPort, true);
-            log.info("Associated floating IP:{} to fixed IP:{}",
-                    floatingIp.getFloatingIpAddress(),
-                    floatingIp.getFixedIpAddress());
-        }
-    }
-
     private void setFloatingIpRules(NetFloatingIP floatingIp, Port osPort,
                                     boolean install) {
         Network osNet = osNetworkService.network(osPort.getNetworkId());
@@ -190,25 +170,39 @@ public class OpenstackRoutingFloatingIpHandler {
                 .build();
 
         osNodeService.gatewayDeviceIds().forEach(gnodeId -> {
-            TrafficTreatment externalTreatment = DefaultTrafficTreatment.builder()
+            TrafficTreatment.Builder externalBuilder = DefaultTrafficTreatment.builder()
                     .setEthSrc(Constants.DEFAULT_GATEWAY_MAC)
                     .setEthDst(instPort.macAddress())
-                    .setIpDst(instPort.ipAddress().getIp4Address())
-                    .setTunnelId(Long.valueOf(osNet.getProviderSegID()))
-                    .extension(buildExtension(
-                            deviceService,
-                            gnodeId,
-                            dataIp.get().getIp4Address()),
-                            gnodeId)
-                    .setOutput(osNodeService.tunnelPort(gnodeId).get())
-                    .build();
+                    .setIpDst(instPort.ipAddress().getIp4Address());
+
+            switch (osNet.getNetworkType()) {
+                case VXLAN:
+                    externalBuilder.setTunnelId(Long.valueOf(osNet.getProviderSegID()))
+                            .extension(buildExtension(
+                                    deviceService,
+                                    gnodeId,
+                                    dataIp.get().getIp4Address()),
+                                    gnodeId)
+                            .setOutput(osNodeService.tunnelPort(gnodeId).get());
+                    break;
+                case VLAN:
+                    externalBuilder.pushVlan()
+                            .setVlanId(VlanId.vlanId(osNet.getProviderSegID()))
+                            .setOutput(osNodeService.vlanPort(gnodeId).get());
+                    break;
+                default:
+                    final String error = String.format(
+                            ERR_UNSUPPORTED_NET_TYPE + "%s",
+                            osNet.getNetworkType().toString());
+                    throw new IllegalStateException(error);
+            }
 
             RulePopulatorUtil.setRule(
                     flowObjectiveService,
                     appId,
                     gnodeId,
                     externalSelector,
-                    externalTreatment,
+                    externalBuilder.build(),
                     ForwardingObjective.Flag.VERSATILE,
                     PRIORITY_FLOATING_EXTERNAL,
                     install);
@@ -220,25 +214,39 @@ public class OpenstackRoutingFloatingIpHandler {
                     .matchInPort(osNodeService.tunnelPort(gnodeId).get())
                     .build();
 
-            TrafficTreatment internalTreatment = DefaultTrafficTreatment.builder()
+            TrafficTreatment.Builder internalBuilder = DefaultTrafficTreatment.builder()
                     .setEthSrc(Constants.DEFAULT_GATEWAY_MAC)
                     .setEthDst(instPort.macAddress())
-                    .setIpDst(instPort.ipAddress().getIp4Address())
-                    .setTunnelId(Long.valueOf(osNet.getProviderSegID()))
-                    .extension(buildExtension(
-                            deviceService,
-                            gnodeId,
-                            dataIp.get().getIp4Address()),
-                            gnodeId)
-                    .setOutput(PortNumber.IN_PORT)
-                    .build();
+                    .setIpDst(instPort.ipAddress().getIp4Address());
+
+            switch (osNet.getNetworkType()) {
+                case VXLAN:
+                    internalBuilder.setTunnelId(Long.valueOf(osNet.getProviderSegID()))
+                            .extension(buildExtension(
+                                    deviceService,
+                                    gnodeId,
+                                    dataIp.get().getIp4Address()),
+                                    gnodeId)
+                            .setOutput(PortNumber.IN_PORT);
+                    break;
+                case VLAN:
+                    internalBuilder.pushVlan()
+                            .setVlanId(VlanId.vlanId(osNet.getProviderSegID()))
+                            .setOutput(PortNumber.IN_PORT);
+                    break;
+                default:
+                    final String error = String.format(
+                            ERR_UNSUPPORTED_NET_TYPE + "%s",
+                            osNet.getNetworkType().toString());
+                    throw new IllegalStateException(error);
+            }
 
             RulePopulatorUtil.setRule(
                     flowObjectiveService,
                     appId,
                     gnodeId,
                     internalSelector,
-                    internalTreatment,
+                    internalBuilder.build(),
                     ForwardingObjective.Flag.VERSATILE,
                     PRIORITY_FLOATING_INTERNAL,
                     install);
@@ -248,26 +256,41 @@ public class OpenstackRoutingFloatingIpHandler {
     private void setUpstreamRules(NetFloatingIP floatingIp, Network osNet,
                                   InstancePort instPort, boolean install) {
         IpAddress floating = IpAddress.valueOf(floatingIp.getFloatingIpAddress());
-        TrafficSelector selector = DefaultTrafficSelector.builder()
+
+        TrafficSelector.Builder sBuilder = DefaultTrafficSelector.builder()
                 .matchEthType(Ethernet.TYPE_IPV4)
-                .matchTunnelId(Long.valueOf(osNet.getProviderSegID()))
-                .matchIPSrc(instPort.ipAddress().toIpPrefix())
-                .build();
+                .matchIPSrc(instPort.ipAddress().toIpPrefix());
+
+        switch (osNet.getNetworkType()) {
+            case VXLAN:
+                sBuilder.matchTunnelId(Long.valueOf(osNet.getProviderSegID()));
+                break;
+            case VLAN:
+                sBuilder.matchVlanId(VlanId.vlanId(osNet.getProviderSegID()));
+                break;
+            default:
+                final String error = String.format(
+                        ERR_UNSUPPORTED_NET_TYPE + "%s",
+                        osNet.getNetworkType().toString());
+                throw new IllegalStateException(error);
+        }
 
         osNodeService.gatewayDeviceIds().forEach(gnodeId -> {
-            TrafficTreatment treatment = DefaultTrafficTreatment.builder()
+            TrafficTreatment.Builder tBuilder = DefaultTrafficTreatment.builder()
                     .setIpSrc(floating.getIp4Address())
                     .setEthSrc(Constants.DEFAULT_GATEWAY_MAC)
-                    .setEthDst(Constants.DEFAULT_EXTERNAL_ROUTER_MAC)
-                    .setOutput(osNodeService.externalPort(gnodeId).get())
-                    .build();
+                    .setEthDst(Constants.DEFAULT_EXTERNAL_ROUTER_MAC);
+
+            if (osNet.getNetworkType().equals(NetworkType.VLAN)) {
+                tBuilder.popVlan();
+            }
 
             RulePopulatorUtil.setRule(
                     flowObjectiveService,
                     appId,
                     gnodeId,
-                    selector,
-                    treatment,
+                    sBuilder.build(),
+                    tBuilder.setOutput(osNodeService.externalPort(gnodeId).get()).build(),
                     ForwardingObjective.Flag.VERSATILE,
                     PRIORITY_FLOATING_EXTERNAL,
                     install);
@@ -290,25 +313,52 @@ public class OpenstackRoutingFloatingIpHandler {
         public void event(OpenstackRouterEvent event) {
             switch (event.type()) {
                 case OPENSTACK_FLOATING_IP_ASSOCIATED:
+                    eventExecutor.execute(() -> {
+                        NetFloatingIP fip = event.floatingIp();
+                        Port osPort = osNetworkService.port(event.portId());
+                        if (osPort == null) {
+                            final String error = String.format(ERR_FLOW + "port(%s) not found",
+                                    fip.getFloatingIpAddress(), fip.getPortId());
+                            throw new IllegalStateException(error);
+                        }
+                        setFloatingIpRules(fip, osPort, true);
+                        log.info("Associated floating IP {}:{}", fip.getFloatingIpAddress(),
+                                fip.getFixedIpAddress());
+                    });
+                    break;
                 case OPENSTACK_FLOATING_IP_DISASSOCIATED:
                     eventExecutor.execute(() -> {
                         NetFloatingIP fip = event.floatingIp();
-                        log.debug("Floating IP {} is updated", fip.getFloatingIpAddress());
-                        floatingIpUpdated(fip, event.portId());
+                        Port osPort = osNetworkService.port(event.portId());
+                        if (osPort == null) {
+                            final String error = String.format(ERR_FLOW + "port(%s) not found",
+                                    fip.getFloatingIpAddress(), event.portId());
+                            throw new IllegalStateException(error);
+                        }
+                        setFloatingIpRules(fip, osPort, false);
+                        log.info("Disassociated floating IP {}:{}", fip.getFloatingIpAddress(),
+                                fip.getFixedIpAddress());
+                    });
+                    break;
+                case OPENSTACK_FLOATING_IP_REMOVED:
+                    eventExecutor.execute(() -> {
+                        NetFloatingIP fip = event.floatingIp();
+                        if (Strings.isNullOrEmpty(fip.getPortId())) {
+                            return;
+                        }
+                        Port osPort = osNetworkService.port(fip.getPortId());
+                        if (osPort == null) {
+                            // FIXME when a port with floating IP removed without
+                            // disassociation step, it can reach here
+                            return;
+                        }
+                        setFloatingIpRules(fip, osPort, false);
+                        log.info("Disassociated floating IP {}:{}", fip.getFloatingIpAddress(),
+                                fip.getFixedIpAddress());
                     });
                     break;
                 case OPENSTACK_FLOATING_IP_CREATED:
-                    log.debug("Floating IP {} is created",
-                            event.floatingIp().getFloatingIpAddress());
-                    break;
                 case OPENSTACK_FLOATING_IP_UPDATED:
-                    log.debug("Floating IP {} is updated",
-                            event.floatingIp().getFloatingIpAddress());
-                    break;
-                case OPENSTACK_FLOATING_IP_REMOVED:
-                    log.debug("Floating IP {} is removed",
-                            event.floatingIp().getFloatingIpAddress());
-                    break;
                 case OPENSTACK_ROUTER_CREATED:
                 case OPENSTACK_ROUTER_UPDATED:
                 case OPENSTACK_ROUTER_REMOVED:
@@ -336,17 +386,21 @@ public class OpenstackRoutingFloatingIpHandler {
 
         @Override
         public void event(OpenstackNodeEvent event) {
-            OpenstackNode osNode = event.subject();
 
             switch (event.type()) {
                 case COMPLETE:
                     eventExecutor.execute(() -> {
-                        log.info("GATEWAY node {} detected", osNode.hostname());
-                        osRouterService.floatingIps().stream()
-                                .filter(fip -> !Strings.isNullOrEmpty(fip.getPortId()))
-                                .forEach(fip -> {
-                                    floatingIpUpdated(fip, fip.getPortId());
-                                });
+                        for (NetFloatingIP fip : osRouterService.floatingIps()) {
+                            if (Strings.isNullOrEmpty(fip.getPortId())) {
+                                continue;
+                            }
+                            Port osPort = osNetworkService.port(fip.getPortId());
+                            if (osPort == null) {
+                                log.warn("Failed to set floating IP {}", fip.getId());
+                                continue;
+                            }
+                            setFloatingIpRules(fip, osPort, true);
+                        }
                     });
                     break;
                 case INIT:
