@@ -92,6 +92,9 @@ public interface Instruction {
          * Signfies that an POF instruction will be used.
          */
         POFINSTRUCTION,
+        /**
+         * Signfies that an POF action will be used.
+         */
         POFACTION,
 
         /**
