@@ -32,8 +32,6 @@ import org.onosproject.net.table.FlowTableStore;
 
 import java.util.ArrayList;
 import java.util.stream.IntStream;
-
-import static com.google.common.base.Preconditions.checkNotNull;
 import static org.onlab.util.Tools.nullIsIllegal;
 
 /**
@@ -75,15 +73,13 @@ public final class FlowTableCodec extends JsonCodec<FlowTable> {
 
         FlowTable.Builder resultBuilder = new DefaultFlowTable.Builder();
         OFFlowTable ofFlowTable = new OFFlowTable();
-        DeviceId deviceid = DeviceId.deviceId(json.get(DEVICE_ID).asText());
+        DeviceId deviceId = DeviceId.deviceId(json.get(DEVICE_ID).asText());
 
         FlowTableTypeCodec tableTypeCodec = new FlowTableTypeCodec(json
                 .get(TABLE_TYPE).asText());
         OFTableType tableType = tableTypeCodec.getFlowTbleType();
-
-        DeviceOFTableType deviceOFTableType = new DeviceOFTableType(deviceid, tableType);
         byte tableId = (byte) tableStore.getTableStore()
-                .getGlobalTableId(deviceOFTableType);
+                .getNewGlobalFlowTableId(deviceId, tableType);
 
         ObjectNode selectorJson = get(json, SELECTOR);
         JsonNode criteriaJson = selectorJson.get(CRITERIA);
@@ -105,7 +101,7 @@ public final class FlowTableCodec extends JsonCodec<FlowTable> {
         ofFlowTable.setTableType(tableType);
         resultBuilder.withFlowTable(ofFlowTable)
                 .forTable(tableId)
-                .forDevice(deviceid);
+                .forDevice(deviceId);
 
         return resultBuilder.build();
     }

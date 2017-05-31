@@ -35,8 +35,6 @@ public interface FlowTableStore extends Store<FlowTableBatchEvent, FlowTableStor
      * @return number of flow tables
      */
     int getFlowTableCount();
-    int getGlobalTableId(DeviceOFTableType deviceOFTableType);
-    int getFlowEntryId(DeviceTableId deviceTableId);
 
     /**
      * Returns the stored flow table.

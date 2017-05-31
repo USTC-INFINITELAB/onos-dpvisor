@@ -449,32 +449,7 @@ public class NewDistributedFlowTableStore
         this.freeFlowTableIDListMap.put(deviceId, freeIDListMap);
     }
 
-    @Override
-    public int getNewGlobalFlowTableId(DeviceId deviceId, OFTableType tableType) {
-        int newFlowTableID = -1;
 
-        OFTableType ofTableType = tableType;
-        if (null == freeFlowTableIDListMap.get(deviceId)
-                || null == freeFlowTableIDListMap.get(deviceId).get(ofTableType)
-                || 0 == freeFlowTableIDListMap.get(deviceId).get(ofTableType).size()) {
-
-            newFlowTableID = flowTableNoMap.get(deviceId).get(ofTableType);
-            flowTableNoMap.get(deviceId).replace(ofTableType, Byte.valueOf((byte) (newFlowTableID + 1)));
-            log.info("get new flow table id from flowTableNoMap: {}", newFlowTableID);
-        } else {
-            newFlowTableID = freeFlowTableIDListMap.get(deviceId).get(ofTableType).remove(0);
-            log.info("get new flow table id from freeFlowTableIDListMap: {}", newFlowTableID);
-
-        }
-
-        flowEntryCount.get(deviceId).putIfAbsent(FlowTableId.valueOf(newFlowTableID), 0);
-        List<Integer> ids = new ArrayList<>();
-        freeFlowEntryIds.get(deviceId).putIfAbsent(FlowTableId.valueOf(newFlowTableID), ids);
-        Map<Integer, FlowRule> fs = new ConcurrentHashMap<>();
-        flowEntries.get(deviceId).putIfAbsent(FlowTableId.valueOf(newFlowTableID), fs);
-
-        return newFlowTableID;
-    }
 
     @Override
     public byte parseToSmallTableId(DeviceId deviceId, int globalTableId) {
@@ -511,29 +486,7 @@ public class NewDistributedFlowTableStore
         return (byte) (flowTableNoBase + smallTableId);
     }
 
-    @Override
-    public int getNewFlowEntryId(DeviceId deviceId, int tableId) {
-        int newFlowEntryId = -1;
-        log.info("++++ getNewFlowEntryId1");
 
-        if (null == freeFlowEntryIds.get(deviceId)
-                || null == freeFlowEntryIds.get(deviceId).get(FlowTableId.valueOf(tableId))
-                || 0 == freeFlowEntryIds.get(deviceId).get(FlowTableId.valueOf(tableId)).size()) {
-
-            log.info("++++ getNewFlowEntryId2");
-            newFlowEntryId = getFlowEntryCount(deviceId, FlowTableId.valueOf(tableId));
-            addFlowEntryCount(deviceId, FlowTableId.valueOf(tableId));
-            log.info("get new flow table id from flowEntryCount: {}", newFlowEntryId);
-            int tempNext = getFlowEntryCount(deviceId, FlowTableId.valueOf(tableId));
-            log.info("temp_next:{}", tempNext);
-        } else {
-            log.info("++++ getNewFlowEntryId3");
-            newFlowEntryId = freeFlowEntryIds.get(deviceId).get(FlowTableId.valueOf(tableId)).remove(0);
-            log.info("get new flow table id from freeFlowEntryIDListMap: {}", newFlowEntryId);
-
-        }
-        return newFlowEntryId;
-    }
     @Override
     public Map<OFTableType, Byte> getFlowTableNoBaseMap(DeviceId deviceId) {
         return this.flowTableNoBaseMap.get(deviceId);
@@ -685,7 +638,8 @@ public class NewDistributedFlowTableStore
                 Collections.emptyList());
     }
     @Override
-    public int getGlobalTableId(DeviceOFTableType deviceOFTableType) {
+    public int getNewGlobalFlowTableId(DeviceId deviceId, OFTableType tableType) {
+        DeviceOFTableType deviceOFTableType = new DeviceOFTableType(deviceId, tableType);
         NodeId master = mastershipService.getMasterFor(deviceOFTableType.getDeviceId());
 
         if (master == null) {
@@ -709,7 +663,8 @@ public class NewDistributedFlowTableStore
                 0);
     }
     @Override
-    public int getFlowEntryId(DeviceTableId deviceTableId) {
+    public int getNewFlowEntryId(DeviceId deviceId, int tableId) {
+        DeviceTableId deviceTableId = new DeviceTableId(deviceId, tableId);
         NodeId master = mastershipService.getMasterFor(deviceTableId.getDeviceId());
         if (master == null) {
             log.debug("Failed to getFLowEntryID: no master for {}", deviceTableId.getDeviceId());

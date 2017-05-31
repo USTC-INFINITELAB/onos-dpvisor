@@ -114,7 +114,7 @@ public final class FlowRuleCodec extends JsonCodec<FlowRule> {
 
         if (json.get(DEVICE_ID).asText().substring(0, 3).equals("pof")) {
             long newFlowEntryId = tableStore.getTableStore()
-                    .getFlowEntryId(new DeviceTableId(deviceid, json.get(TABLE_ID).asInt()));
+                    .getNewFlowEntryId(deviceid, json.get(TABLE_ID).asInt());
             resultBuilder.withCookie(newFlowEntryId);
         }
 

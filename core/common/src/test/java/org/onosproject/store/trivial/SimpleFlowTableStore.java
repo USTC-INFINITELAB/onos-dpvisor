@@ -188,10 +188,6 @@ public class SimpleFlowTableStore
         flowEntries.putIfAbsent(deviceId, tfs);
     }
 
-    @Override
-    public int getFlowEntryId(DeviceTableId deviceTableId) {
-        return 0;
-    }
 
     @Override
     public void removeSwitchStore(DeviceId deviceId) {
