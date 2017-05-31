@@ -923,15 +923,12 @@ public class NewDistributedFlowTableStore
         log.trace("Forwarding removeFlowTable to {}, which is the master for device {}",
                 master, deviceId);
 
-        return Futures.get(clusterCommunicator.sendAndReceive(
+        return Futures.getUnchecked(clusterCommunicator.sendAndReceive(
                 table,
                 REMOVE_FLOW_TABLE,
                 SERIALIZER::encode,
                 SERIALIZER::decode,
-                master),
-                FLOW_TABLE_STORE_TIMEOUT_MILLIS,
-                TimeUnit.MILLISECONDS,
-                RuntimeException.class);
+                master));
     }
 
     private FlowTableEvent removeFlowTableInternal(FlowTable table) {
