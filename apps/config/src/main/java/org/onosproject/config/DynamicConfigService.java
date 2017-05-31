@@ -74,16 +74,13 @@ public interface DynamicConfigService
     Integer getNumberOfChildren(ResourceId path, Filter filter);
 
     /**
-     * Updates an existing node in the dynamic config store.
-     * This method would throw an exception if the requested node, any of its
-     * children or any parent nodes in the path were not present.
-     * Failure reason will be the error message in the exception.
+     * Returns whether the requested node exists in the Dynamic Config store.
      *
-     * @param path data structure with absolute path to the parent
-     * @param node recursive data structure, holding a leaf node or a subtree
-     * @throws FailedException if the update request failed
+     * @param path data structure with absolute path to the intended node
+     * @return {@code true} if the node existed in the store
+     * {@code false} otherwise
      */
-    void updateNode(ResourceId path, DataNode node);
+    Boolean nodeExist(ResourceId path);
 
     /**
      * Updates an existing node in the dynamic config store.
@@ -95,9 +92,8 @@ public interface DynamicConfigService
      * @param path data structure with absolute path to the parent
      * @param node recursive data structure, holding a leaf node or a subtree
      * @throws FailedException if the update request failed for any reason
-     *
      */
-    void updateNodeRecursive(ResourceId path, DataNode node);
+    void updateNode(ResourceId path, DataNode node);
 
     /**
      * Replaces nodes in the dynamic config store.

@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-
 import org.onlab.packet.ChassisId;
 import org.onlab.packet.EthType;
 import org.onlab.packet.Ip4Address;
@@ -214,6 +213,7 @@ import org.onosproject.store.primitives.MapUpdate;
 import org.onosproject.store.primitives.TransactionId;
 import org.onosproject.store.service.MapEvent;
 import org.onosproject.store.service.TransactionLog;
+import org.onosproject.store.service.MultimapEvent;
 import org.onosproject.store.service.SetEvent;
 import org.onosproject.store.service.Task;
 import org.onosproject.store.service.Versioned;
@@ -260,7 +260,8 @@ public final class KryoNamespaces {
             .register(new ImmutableListSerializer(),
                       ImmutableList.class,
                       ImmutableList.of(1).getClass(),
-                      ImmutableList.of(1, 2).getClass())
+                      ImmutableList.of(1, 2).getClass(),
+                      ImmutableList.of(1, 2, 3).subList(1, 3).getClass())
             .register(new ImmutableSetSerializer(),
                       ImmutableSet.class,
                       ImmutableSet.of().getClass(),
@@ -538,6 +539,8 @@ public final class KryoNamespaces {
             .register(Versioned.class)
             .register(MapEvent.class)
             .register(MapEvent.Type.class)
+            .register(MultimapEvent.class)
+            .register(MultimapEvent.Type.class)
             .register(SetEvent.class)
             .register(SetEvent.Type.class)
             .register(GroupId.class)

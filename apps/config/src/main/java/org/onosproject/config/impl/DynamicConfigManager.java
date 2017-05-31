@@ -71,8 +71,7 @@ public class DynamicConfigManager
     }
 
     public void createNodeRecursive(ResourceId path, DataNode node) {
-        Boolean stat = false;
-        stat = this.store.addNode(path, node).join();
+        store.addNode(path, node).join();
     }
 
     public DataNode readNode(ResourceId path, Filter filter) {
@@ -80,7 +79,7 @@ public class DynamicConfigManager
     }
 
     public void updateNode(ResourceId path, DataNode node) {
-        throw new FailedException("Not yet implemented");
+        store.updateNode(path, node).join();
     }
 
     public void deleteNode(ResourceId path) {
@@ -91,16 +90,16 @@ public class DynamicConfigManager
         store.deleteNodeRecursive(path).join();
     }
 
-    public void updateNodeRecursive(ResourceId path, DataNode node) {
-        throw new FailedException("Not yet implemented");
-    }
-
     public void replaceNode(ResourceId path, DataNode node) {
         throw new FailedException("Not yet implemented");
     }
 
     public Integer getNumberOfChildren(ResourceId path, Filter filter) {
         throw new FailedException("Not yet implemented");
+    }
+
+    public Boolean nodeExist(ResourceId path) {
+        return store.nodeExist(path).join();
     }
 
     public void registerHandler(RpcHandler handler, RpcCommand command) {

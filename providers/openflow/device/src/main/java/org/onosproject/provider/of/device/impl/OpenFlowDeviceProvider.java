@@ -110,6 +110,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Dictionary;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -326,6 +327,8 @@ public class OpenFlowDeviceProvider extends AbstractProvider implements DevicePr
                 sw.sendMsg(fact.buildFeaturesRequest().setXid(0).build());
                 break;
             case OF_13:
+            case OF_14:
+            case OF_15:
                 sw.sendMsg(fact.buildPortDescStatsRequest().setXid(0).build());
                 break;
             default:
@@ -364,12 +367,14 @@ public class OpenFlowDeviceProvider extends AbstractProvider implements DevicePr
         OFPortMod.Builder pmb = sw.factory().buildPortMod();
         OFPort port = OFPort.of((int) portNumber.toLong());
         pmb.setPortNo(port);
-        if (enable) {
-            pmb.setConfig(0x0); // port_down bit 0
-        } else {
-            pmb.setConfig(0x1); // port_down bit 1
+        Set<OFPortConfig> portConfig = EnumSet.noneOf(OFPortConfig.class);
+        if (!enable) {
+            portConfig.add(OFPortConfig.PORT_DOWN);
         }
-        pmb.setMask(0x1);
+        pmb.setConfig(portConfig);
+        Set<OFPortConfig> portMask = EnumSet.noneOf(OFPortConfig.class);
+        portMask.add(OFPortConfig.PORT_DOWN);
+        pmb.setMask(portMask);
         pmb.setAdvertise(0x0);
         for (OFPortDesc pd : sw.getPorts()) {
             if (pd.getPortNo().equals(port)) {
@@ -974,11 +979,13 @@ public class OpenFlowDeviceProvider extends AbstractProvider implements DevicePr
             if (status.getReason() != OFPortReason.DELETE) {
                 return buildPortDescription(port);
             } else {
-                PortNumber portNo = PortNumber.portNumber(port.getPortNo().getPortNumber());
-                Port.Type type = port.getCurr().contains(OFPortFeatures.PF_FIBER) ? FIBER : COPPER;
-                SparseAnnotations annotations = makePortAnnotation(port.getName(), port.getHwAddr().toString()).build();
-                return new DefaultPortDescription(portNo, false, true, type,
-                                                  portSpeed(port), annotations);
+                PortDescription desc = buildPortDescription(port);
+                if (desc.isEnabled()) {
+                    return DefaultPortDescription.builder(desc)
+                            .isEnabled(false)
+                            .build();
+                }
+                return desc;
             }
         }
 

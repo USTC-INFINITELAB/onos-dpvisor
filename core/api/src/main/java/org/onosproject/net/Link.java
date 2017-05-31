@@ -107,15 +107,6 @@ public interface Link extends Annotated, Provided, Projectable, NetworkResource 
     State state();
 
     /**
-     * Indicates if the link is to be considered durable.
-     *
-     * @return true if the link is durable
-     * @deprecated in Falcon Release - replaced by isConfigured()
-     */
-    @Deprecated
-    boolean isDurable();
-
-    /**
      * Indicates if the link was created from a predefined configuration.
      *
      * @return true if the link was created from a predefined configuration,

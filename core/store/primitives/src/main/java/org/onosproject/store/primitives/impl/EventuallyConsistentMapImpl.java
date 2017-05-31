@@ -777,7 +777,7 @@ public class EventuallyConsistentMapImpl<K, V>
 
         try {
             requestBootstrapFromPeers(activePeers)
-                    .get(DistributedPrimitive.DEFAULT_OPERTATION_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+                    .get(DistributedPrimitive.DEFAULT_OPERATION_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
         } catch (ExecutionException e) {
             log.debug("Failed to bootstrap ec map {}: {}", mapName, e.getCause());
         } catch (InterruptedException | TimeoutException e) {
@@ -922,15 +922,19 @@ public class EventuallyConsistentMapImpl<K, V>
             items.forEach(item -> map.compute(item.key(), (key, existing) ->
                     item.isNewerThan(existing) ? item : existing));
             communicationExecutor.execute(() -> {
-                clusterCommunicator.unicast(ImmutableList.copyOf(map.values()),
-                                            updateMessageSubject,
-                                            serializer::encode,
-                                            peer)
-                                   .whenComplete((result, error) -> {
-                                       if (error != null) {
-                                           log.debug("Failed to send to {}", peer, error);
-                                       }
-                                   });
+                try {
+                    clusterCommunicator.unicast(ImmutableList.copyOf(map.values()),
+                            updateMessageSubject,
+                            serializer::encode,
+                            peer)
+                            .whenComplete((result, error) -> {
+                                if (error != null) {
+                                    log.debug("Failed to send to {}", peer, error);
+                                }
+                            });
+                } catch (Exception e) {
+                    log.warn("Failed to send to {}", peer, e);
+                }
             });
         }
     }

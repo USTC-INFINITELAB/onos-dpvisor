@@ -21,7 +21,10 @@ import org.slf4j.LoggerFactory;
 
 /**
  * HexDump class an utility to dump buffer in hex format.
+ *
+ * @deprecated in 1.11.0
  */
+@Deprecated
 public final class HexDump {
     protected static final Logger log = LoggerFactory.getLogger(HexDump.class);
 

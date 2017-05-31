@@ -17,12 +17,14 @@
 package org.onosproject.store.service;
 
 import com.google.common.collect.Multiset;
+import com.google.common.util.concurrent.MoreExecutors;
 import org.onosproject.store.primitives.DefaultConsistentMultimap;
 
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 /**
  * Interface for a distributed multimap.
@@ -222,6 +224,34 @@ public interface AsyncConsistentMultimap<K, V> extends DistributedPrimitive {
     CompletableFuture<Collection<Map.Entry<K, V>>> entries();
 
     /**
+     * Registers the specified listener to be notified whenever the map is updated.
+     *
+     * @param listener listener to notify about map events
+     * @return future that will be completed when the operation finishes
+     */
+    default CompletableFuture<Void> addListener(MultimapEventListener<K, V> listener) {
+        return addListener(listener, MoreExecutors.directExecutor());
+    }
+
+    /**
+     * Registers the specified listener to be notified whenever the map is updated.
+     *
+     * @param listener listener to notify about map events
+     * @param executor executor to use for handling incoming map events
+     * @return future that will be completed when the operation finishes
+     */
+    CompletableFuture<Void> addListener(MultimapEventListener<K, V> listener, Executor executor);
+
+    /**
+     * Unregisters the specified listener such that it will no longer
+     * receive map change notifications.
+     *
+     * @param listener listener to unregister
+     * @return future that will be completed when the operation finishes
+     */
+    CompletableFuture<Void> removeListener(MultimapEventListener<K, V> listener);
+
+    /**
      * Returns a map of keys to collections of values that reflect the set of
      * key-value pairs contained in the multimap, where the key value pairs
      * would be the key paired with each of the values in the collection.
@@ -241,7 +271,7 @@ public interface AsyncConsistentMultimap<K, V> extends DistributedPrimitive {
      * synchronous access to this map
      */
     default ConsistentMultimap<K, V> asMultimap() {
-        return asMultimap(DEFAULT_OPERTATION_TIMEOUT_MILLIS);
+        return asMultimap(DEFAULT_OPERATION_TIMEOUT_MILLIS);
     }
 
     /**

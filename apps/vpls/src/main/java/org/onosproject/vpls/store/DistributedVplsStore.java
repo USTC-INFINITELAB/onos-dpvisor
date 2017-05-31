@@ -62,7 +62,9 @@ public class DistributedVplsStore
 
     private static final KryoNamespace APP_KRYO = KryoNamespace.newBuilder()
             .register(KryoNamespaces.API)
+            .register(Interface.class)
             .register(VplsData.class)
+            .register(VplsData.VplsState.class)
             .register(VplsOperation.class)
             .build();
 
@@ -98,6 +100,7 @@ public class DistributedVplsStore
     @Deactivate
     protected  void deactive() {
         vplsDataStore.removeListener(vplsDataListener);
+        networkConfigService.removeConfig(appId);
         log.info("Stopped");
     }
 
@@ -163,6 +166,10 @@ public class DistributedVplsStore
      */
     public void writeVplsToNetConfig(Collection<VplsData> vplsDataCollection) {
         VplsAppConfig config = networkConfigService.addConfig(appId, VplsAppConfig.class);
+        if (config == null) {
+            log.debug("VPLS config is not available now");
+            return;
+        }
         config.clearVplsConfig();
 
         // Setup update time for this VPLS application configuration
@@ -210,6 +217,10 @@ public class DistributedVplsStore
                     }
                     break;
                 case REMOVE:
+                    if (vplsData == null) {
+                        vplsData = VplsData.of(event.key());
+                    }
+                    vplsData.state(VplsData.VplsState.REMOVING);
                     VplsStoreEvent vplsStoreEvent =
                             new VplsStoreEvent(VplsStoreEvent.Type.REMOVE, vplsData);
                     notifyDelegate(vplsStoreEvent);

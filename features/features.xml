@@ -23,7 +23,7 @@
         <bundle>mvn:commons-lang/commons-lang/2.6</bundle>
         <bundle>mvn:org.apache.commons/commons-lang3/3.5</bundle>
         <bundle>mvn:commons-configuration/commons-configuration/1.10</bundle>
-        <bundle>mvn:com.google.guava/guava/19.0</bundle>
+        <bundle>mvn:com.google.guava/guava/22.0</bundle>
         <bundle>mvn:io.netty/netty/3.10.5.Final</bundle>
         <bundle>mvn:io.netty/netty-common/4.1.5.Final</bundle>
         <bundle>mvn:io.netty/netty-buffer/4.1.5.Final</bundle>
@@ -37,8 +37,8 @@
 
         <bundle>mvn:joda-time/joda-time/2.9.3</bundle>
 
-        <bundle>mvn:io.dropwizard.metrics/metrics-core/3.1.2</bundle>
-        <bundle>mvn:io.dropwizard.metrics/metrics-json/3.1.2</bundle>
+        <bundle>mvn:io.dropwizard.metrics/metrics-core/3.2.2</bundle>
+        <bundle>mvn:io.dropwizard.metrics/metrics-json/3.2.2</bundle>
         <bundle>mvn:com.eclipsesource.minimal-json/minimal-json/0.9.4</bundle>
 
         <bundle>mvn:com.esotericsoftware/kryo/4.0.0</bundle>
@@ -47,9 +47,9 @@
         <bundle>mvn:com.esotericsoftware/minlog/1.3.0</bundle>
         <bundle>mvn:org.objenesis/objenesis/2.2</bundle>
 
-        <bundle>mvn:com.fasterxml.jackson.core/jackson-core/2.8.6</bundle>
-        <bundle>mvn:com.fasterxml.jackson.core/jackson-annotations/2.8.6</bundle>
-        <bundle>mvn:com.fasterxml.jackson.core/jackson-databind/2.8.6</bundle>
+        <bundle>mvn:com.fasterxml.jackson.core/jackson-core/2.8.8</bundle>
+        <bundle>mvn:com.fasterxml.jackson.core/jackson-annotations/2.8.8</bundle>
+        <bundle>mvn:com.fasterxml.jackson.core/jackson-databind/2.8.8</bundle>
 
         <bundle>mvn:commons-configuration/commons-configuration/1.10</bundle>
         <bundle>mvn:commons-collections/commons-collections/3.2.2</bundle>
