@@ -35,6 +35,7 @@ import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
 import org.onosproject.core.IdGenerator;
 import org.onosproject.floodlightpof.protocol.table.OFFlowTable;
+import org.onosproject.floodlightpof.protocol.table.OFTableType;
 import org.onosproject.mastership.MastershipService;
 import org.onosproject.net.Device;
 import org.onosproject.net.DeviceId;
@@ -221,6 +222,16 @@ public class FlowTableManager
         }
     }
 
+
+    @Override
+    public int getNewGlobalFlowTableId(DeviceId deviceId, OFTableType type) {
+        return store.getNewGlobalFlowTableId(deviceId, type);
+    }
+
+    @Override
+    public int getNewFlowEntryId(DeviceId deviceId, int tableId) {
+        return store.getNewFlowEntryId(deviceId, tableId);
+    }
 
     @Override
     public int getFlowTableCount() {

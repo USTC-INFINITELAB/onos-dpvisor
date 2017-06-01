@@ -18,6 +18,7 @@ package org.onosproject.net.table;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.event.ListenerService;
 import org.onosproject.floodlightpof.protocol.table.OFFlowTable;
+import org.onosproject.floodlightpof.protocol.table.OFTableType;
 import org.onosproject.net.DeviceId;
 
 /**
@@ -34,6 +35,25 @@ public interface FlowTableService
      * The topic used for obtaining globally unique ids.
      */
     String FLOW_OP_TOPIC = "flow-ops-ids";
+
+    /**
+     * Returns the table id of the specified flow table associated with
+     * device id and flow table type.
+     *
+     * @param deviceId  the device id
+     * @param type the flow table type
+     * @return flow table id
+     */
+    int getNewGlobalFlowTableId(DeviceId deviceId, OFTableType type);
+
+    /**
+     * Returns the flow entry id in the specified flow table.
+     *
+     * @param deviceId the device id
+     * @param tableId the table id
+     * @return flow entry id
+     */
+    int getNewFlowEntryId(DeviceId deviceId, int tableId);
 
     /**
      * Returns the number of flow tables in the system.
