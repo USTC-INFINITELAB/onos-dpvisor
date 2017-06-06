@@ -39,13 +39,13 @@ public final class DefaultPofInstructions {
 
     public enum PofInstructionType {
 
+        POF_ACTION,
+
         CALCULATE_FIELD,
 
         GOTO_DIRECT_TABLE,
 
         GOTO_TABLE,
-
-        POF_ACTION,
 
         WRITE_METADATA,
 
@@ -174,6 +174,10 @@ public final class DefaultPofInstructions {
             this.insApplyActions.setActionList(actions);
         }
 
+        public PofInstructionType pofInstructionType() {
+            return PofInstructionType.POF_ACTION;
+        }
+
         @Override
         public OFInstruction instruction() {
             return this.insApplyActions;
@@ -227,6 +231,10 @@ public final class DefaultPofInstructions {
 
         private PofInstructionCalcField(OFInstructionCalculateField calcField) {
             this.insCalculateField = calcField;
+        }
+
+        public PofInstructionType pofInstructionType() {
+            return PofInstructionType.CALCULATE_FIELD;
         }
 
         @Override
@@ -285,6 +293,10 @@ public final class DefaultPofInstructions {
             this.insGotoDirectTable = gotoDirectTable;
         }
 
+        public PofInstructionType pofInstructionType() {
+            return PofInstructionType.GOTO_DIRECT_TABLE;
+        }
+
         @Override
         public OFInstruction instruction() {
             return this.insGotoDirectTable;
@@ -338,6 +350,10 @@ public final class DefaultPofInstructions {
 
         private PofInstructionGotoTable(OFInstructionGotoTable gotoTable) {
             this.insGotoTable = gotoTable;
+        }
+
+        public PofInstructionType pofInstructionType() {
+            return PofInstructionType.GOTO_TABLE;
         }
 
         @Override
@@ -394,6 +410,10 @@ public final class DefaultPofInstructions {
             this.insWriteMetadata = writeMetadata;
         }
 
+        public PofInstructionType pofInstructionType() {
+            return PofInstructionType.WRITE_METADATA;
+        }
+
         @Override
         public OFInstruction instruction() {
             return this.insWriteMetadata;
@@ -446,6 +466,10 @@ public final class DefaultPofInstructions {
 
         private PofInstructionWriteMetadataFromPacket(OFInstructionWriteMetadataFromPacket writeMetadataFromPacket) {
             this.insWriteMetadataFromPacket = writeMetadataFromPacket;
+        }
+
+        public PofInstructionType pofInstructionType() {
+            return PofInstructionType.WRITE_METADATA_FROM_PACKET;
         }
 
         @Override
