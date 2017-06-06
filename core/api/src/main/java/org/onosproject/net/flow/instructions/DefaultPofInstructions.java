@@ -37,23 +37,6 @@ public final class DefaultPofInstructions {
 
     private static final String SEPARATOR = ":";
 
-    public enum PofInstructionType {
-
-        POF_ACTION,
-
-        CALCULATE_FIELD,
-
-        GOTO_DIRECT_TABLE,
-
-        GOTO_TABLE,
-
-        WRITE_METADATA,
-
-        WRITE_METADATA_FROM_PACKET
-
-        //TODO: remaining types
-    }
-
     // Ban construction
     private DefaultPofInstructions() {}
 
@@ -174,6 +157,7 @@ public final class DefaultPofInstructions {
             this.insApplyActions.setActionList(actions);
         }
 
+        @Override
         public PofInstructionType pofInstructionType() {
             return PofInstructionType.POF_ACTION;
         }
@@ -233,6 +217,7 @@ public final class DefaultPofInstructions {
             this.insCalculateField = calcField;
         }
 
+        @Override
         public PofInstructionType pofInstructionType() {
             return PofInstructionType.CALCULATE_FIELD;
         }
@@ -293,6 +278,7 @@ public final class DefaultPofInstructions {
             this.insGotoDirectTable = gotoDirectTable;
         }
 
+        @Override
         public PofInstructionType pofInstructionType() {
             return PofInstructionType.GOTO_DIRECT_TABLE;
         }
@@ -352,6 +338,7 @@ public final class DefaultPofInstructions {
             this.insGotoTable = gotoTable;
         }
 
+        @Override
         public PofInstructionType pofInstructionType() {
             return PofInstructionType.GOTO_TABLE;
         }
@@ -410,6 +397,7 @@ public final class DefaultPofInstructions {
             this.insWriteMetadata = writeMetadata;
         }
 
+        @Override
         public PofInstructionType pofInstructionType() {
             return PofInstructionType.WRITE_METADATA;
         }
@@ -468,6 +456,7 @@ public final class DefaultPofInstructions {
             this.insWriteMetadataFromPacket = writeMetadataFromPacket;
         }
 
+        @Override
         public PofInstructionType pofInstructionType() {
             return PofInstructionType.WRITE_METADATA_FROM_PACKET;
         }
