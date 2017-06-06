@@ -37,10 +37,9 @@ import org.onosproject.core.DefaultApplicationId;
 import org.onosproject.floodlightpof.protocol.action.OFAction;
 import org.onosproject.floodlightpof.protocol.action.OFActionOutput;
 import org.onosproject.floodlightpof.protocol.instruction.OFInstruction;
-import org.onosproject.floodlightpof.protocol.table.OFTableType;
+import org.onosproject.floodlightpof.protocol.instruction.OFInstructionApplyActions;
 import org.onosproject.incubator.net.virtual.NetworkId;
 import org.onosproject.incubator.net.virtual.VirtualLink;
-import org.onosproject.incubator.net.virtual.VirtualNetworkFlowService;
 import org.onosproject.incubator.net.virtual.VirtualNetworkService;
 import org.onosproject.incubator.net.virtual.VirtualPort;
 import org.onosproject.incubator.net.virtual.provider.AbstractVirtualProvider;
@@ -73,9 +72,9 @@ import org.onosproject.net.flow.TrafficSelector;
 import org.onosproject.net.flow.TrafficTreatment;
 import org.onosproject.net.flow.criteria.Criterion;
 import org.onosproject.net.flow.criteria.PortCriterion;
+import org.onosproject.net.flow.instructions.DefaultPofActions;
+import org.onosproject.net.flow.instructions.DefaultPofInstructions;
 import org.onosproject.net.flow.instructions.Instruction;
-import org.onosproject.net.flow.instructions.Instructions;
-import org.onosproject.net.flow.instructions.PofAction;
 import org.onosproject.net.flow.instructions.PofInstruction;
 import org.onosproject.net.provider.ProviderId;
 import org.onosproject.net.topology.TopologyService;
@@ -89,7 +88,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableSet.copyOf;
@@ -296,38 +294,49 @@ public class DefaultVirtualPofFlowRuleProvider extends AbstractVirtualProvider
         TrafficSelector trafficSelector = flowRule.selector();
         TrafficTreatment trafficTreatment = flowRule.treatment();
         int tableId = flowRule.tableId();
+        long entryId = flowRule.id().id();
 
         Criterion criterion = trafficSelector.getCriterion(Criterion.Type.POF);
 
         List<Instruction> insList = trafficTreatment.allInstructions();
 
-        List<OFAction> ofActionsList = new LinkedList<>();
-        List<OFInstruction> ofInsList = new LinkedList<>();
+        List<OFAction> ofActionList = new LinkedList<>();
+        List<PofInstruction> pofInsList = new LinkedList<>();
 
-        for (Instruction i : insList) {
-            switch (i.type()) {
-                case POFACTION:
-                    PofAction pa = (PofAction) i;
-                    ofActionsList.add(pa.action());
-                    break;
-
-                case POFINSTRUCTION:
-                    PofInstruction pi = (PofInstruction) i;
-                    ofInsList.add(pi.instruction());
-                    break;
-
-                default:
-                    log.warn("Instruction type {} not yet implemented.", i.type());
+        for (Instruction ins : insList) {
+            if (ins.type() == Instruction.Type.POFINSTRUCTION) {
+                PofInstruction pofInstruction = (PofInstruction) ins;
+                switch (pofInstruction.pofInstructionType()) {
+                    case POF_ACTION:
+                        DefaultPofInstructions.PofInstructionApplyActions pofInstructionApplyActions
+                                = (DefaultPofInstructions.PofInstructionApplyActions) pofInstruction;
+                        OFInstruction ofInstruction = pofInstructionApplyActions.instruction();
+                        OFInstructionApplyActions ofInstructionApplyActions
+                                = (OFInstructionApplyActions) ofInstruction;
+                        ofActionList = ofInstructionApplyActions.getActionList();
+                        break;
+                    case CALCULATE_FIELD:
+                    case GOTO_DIRECT_TABLE:
+                    case GOTO_TABLE:
+                    case WRITE_METADATA:
+                    case WRITE_METADATA_FROM_PACKET:
+                        pofInsList.add(pofInstruction);
+                        break;
+                    default:
+                        log.warn("Pof instruction type {} not yet implemented.", pofInstruction.pofInstructionType());
+                }
             }
         }
-        int outputPort = -1;
-        for (OFAction action : ofActionsList) {
-            if (action instanceof OFActionOutput) {
-                outputPort = ((OFActionOutput) action).getPortId();
+
+        OFActionOutput ofActionOutput = null;
+        for (OFAction oa : ofActionList) {
+            if (oa instanceof OFActionOutput) {
+                ofActionOutput = (OFActionOutput) oa;
                 break;
             }
         }
-        if (outputPort != -1) {
+        if (ofActionOutput != null) {
+            int outputPort = ofActionOutput.getPortId();
             PortNumber outPort = PortNumber.portNumber(outputPort);
             ConnectPoint outCp = new ConnectPoint(virtualDeviceId, outPort);
             Optional<VirtualPort> optionalVirtualPort = vnService
@@ -349,18 +358,74 @@ public class DefaultVirtualPofFlowRuleProvider extends AbstractVirtualProvider
                     .findFirst();
 
             if (optionalEgressLink.isPresent()) {
-                //add field to distinguish the packets belonging to different tenants
-                ConnectPoint physicalCp = optionalVirtualPort.get().realizedBy();
                 //At present, we only consider the one-to-one mapping
+                ConnectPoint physicalCp = optionalVirtualPort.get().realizedBy();
                 DeviceId physicalDeviceId = physicalCp.deviceId();
                 int physicalOutPort = (int)physicalCp.port().toLong();
+                if (ofActionList.remove(ofActionOutput)) {
+                    String src = "a4230500000" + networkId.id();
+                    String dst = "a42305000000";
+                    String ethType = "0800";
+                    String field = src + dst + ethType;
+                    if (field.length() != 28) {
+                        log.error("Add field error: {}", field);
+                        return outRules;
+                    }
+                    //add field to distinguish the packets belonging to different tenants
+                    ofActionList.add(DefaultPofActions.addField((short)1, (short)0, (short)112, field).action());
+                    ofActionList.add(DefaultPofActions.output((short)0, (short)0, (short)0, physicalOutPort).action());
+                    TrafficTreatment.Builder ttBuilder = DefaultTrafficTreatment.builder();
+                    ttBuilder.add(DefaultPofInstructions.applyActions(ofActionList));
+                    for (PofInstruction pi : pofInsList) {
+                        ttBuilder.add(pi);
+                    }
+
+                    FlowRule newFlowRule = DefaultFlowRule.builder()
+                            .forTable(tableId)
+                            .forDevice(physicalDeviceId)
+                            .withSelector(trafficSelector)
+                            .withTreatment(ttBuilder.build())
+                            .withPriority(4000)
+                            .makePermanent()
+                            .withCookie(entryId)
+                            .build();
+                    outRules.add(newFlowRule);
+                } else {
+                    log.error("Remove OFAction error!");
+                    return outRules;
+                }
 
             } else {
                 //do not need any modification to the packets
+                //At present, we only consider the one-to-one mapping
+                ConnectPoint physicalCp = optionalVirtualPort.get().realizedBy();
+                DeviceId physicalDeviceId = physicalCp.deviceId();
+                int physicalOutPort = (int)physicalCp.port().toLong();
+                if (ofActionList.remove(ofActionOutput)) {
+                    ofActionList.add(DefaultPofActions.output((short)0, (short)0, (short)0, physicalOutPort).action());
+                    TrafficTreatment.Builder ttBuilder = DefaultTrafficTreatment.builder();
+                    ttBuilder.add(DefaultPofInstructions.applyActions(ofActionList));
+                    for (PofInstruction pi : pofInsList) {
+                        ttBuilder.add(pi);
+                    }
+
+                    FlowRule newFlowRule = DefaultFlowRule.builder()
+                            .forTable(tableId)
+                            .forDevice(physicalDeviceId)
+                            .withSelector(trafficSelector)
+                            .withTreatment(ttBuilder.build())
+                            .withPriority(4000)
+                            .makePermanent()
+                            .withCookie(entryId)
+                            .build();
+                    outRules.add(newFlowRule);
+                } else {
+                    log.error("Remove OFAction error!");
+                    return outRules;
+                }
 
             }
         }
-
         return outRules;
     }
 

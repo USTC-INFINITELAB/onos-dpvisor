@@ -75,6 +75,8 @@ public class VirtualNetworkPofTableManager
     private static final int EDGE_TABLE_ID = 1;
     private static final int VIRTUAL_TABLE_ID = 2;
 
+    private boolean hasSendDefaultEntries = false;
+
     private final DeviceService deviceService;
 
     private VirtualProviderRegistryService providerRegistryService = null;
@@ -110,24 +112,27 @@ public class VirtualNetworkPofTableManager
 
         //send flow entries for the EdgeTable and VirtualTable to support virtualization
         //Port-based network virtualization
-
-        Set<VirtualPort> virtualPortSet = manager.getVirtualPorts(networkId, deviceId);
-        Set<VirtualLink> virtualLinkSet = manager.getVirtualLinks(networkId);
-        for (VirtualPort virtualPort : virtualPortSet) {
-            ConnectPoint cp =new ConnectPoint(virtualPort.element().id(), virtualPort.number());
-            Optional<VirtualLink> optionalIngressLink = virtualLinkSet
-                    .stream()
-                    .filter(l -> l.dst().equals(cp))
-                    .findFirst();
-            if (!optionalIngressLink.isPresent()) {
-                //edge port, send flow entries to EdgeTable
-                ConnectPoint realizedCp = virtualPort.realizedBy();
-                sendFlowEntryToEdgeTable(realizedCp.deviceId(), EDGE_TABLE_ID, (int) realizedCp.port().toLong(), tableId);
-            } else {
-                //not edge port, send flow entries to VirtualTable
-                ConnectPoint realizedCp = virtualPort.realizedBy();
-                sendFlowEntryToVirtualTable(realizedCp.deviceId(), VIRTUAL_TABLE_ID, (int) realizedCp.port().toLong(), tableId);
+        if (!hasSendDefaultEntries) {
+            Set<VirtualPort> virtualPortSet = manager.getVirtualPorts(networkId, deviceId);
+            Set<VirtualLink> virtualLinkSet = manager.getVirtualLinks(networkId);
+            for (VirtualPort virtualPort : virtualPortSet) {
+                ConnectPoint cp =new ConnectPoint(virtualPort.element().id(), virtualPort.number());
+                Optional<VirtualLink> optionalIngressLink = virtualLinkSet
+                        .stream()
+                        .filter(l -> l.dst().equals(cp))
+                        .findFirst();
+                if (!optionalIngressLink.isPresent()) {
+                    //edge port, send flow entries to EdgeTable
+                    ConnectPoint realizedCp = virtualPort.realizedBy();
+                    sendFlowEntryToEdgeTable(realizedCp.deviceId(), EDGE_TABLE_ID, (int) realizedCp.port().toLong(), tableId);
+                } else {
+                    //not edge port, send flow entries to VirtualTable
+                    ConnectPoint realizedCp = virtualPort.realizedBy();
+                    sendFlowEntryToVirtualTable(realizedCp.deviceId(), VIRTUAL_TABLE_ID, (int) realizedCp.port().toLong(), tableId);
+                }
             }
+
+            //hasSendDefaultEntries = true;
         }
 
         return tableId;
