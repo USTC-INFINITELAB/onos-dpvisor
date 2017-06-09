@@ -289,7 +289,7 @@ public class PofLinkDiscovery {
         //construct treatment
         TrafficTreatment.Builder ppbuilder = DefaultTrafficTreatment.builder();
         List<OFAction> actions = new ArrayList<OFAction>();
-        actions.add(DefaultPofActions.packetIn(0).action());
+        actions.add(DefaultPofActions.packetIn(1).action());
         ppbuilder.add(DefaultPofInstructions.applyActions(actions));
 
         TrafficSelector selector = pbuilder.build();
