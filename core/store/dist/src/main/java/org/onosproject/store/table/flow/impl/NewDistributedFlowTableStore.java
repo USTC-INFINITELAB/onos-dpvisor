@@ -134,7 +134,7 @@ public class NewDistributedFlowTableStore
 
     @Property(name = "backupEnabled", boolValue = DEFAULT_BACKUP_ENABLED,
             label = "Indicates whether backups are enabled or not")
-    private boolean backupEnabled = DEFAULT_BACKUP_ENABLED;
+    private boolean backupEnabled = !DEFAULT_BACKUP_ENABLED;
 
     @Property(name = "backupPeriod", intValue = DEFAULT_BACKUP_PERIOD_MILLIS,
             label = "Delay in ms between successive backup runs")

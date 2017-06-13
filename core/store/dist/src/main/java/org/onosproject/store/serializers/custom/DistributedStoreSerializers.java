@@ -25,6 +25,7 @@ import org.onosproject.floodlightpof.protocol.instruction.OFInstructionType;
 import org.onosproject.floodlightpof.protocol.table.OFFlowTable;
 import org.onosproject.floodlightpof.protocol.table.OFTableMod;
 import org.onosproject.floodlightpof.protocol.table.OFTableType;
+import org.onosproject.net.table.DefaultFlowTableEntry;
 import org.onosproject.net.table.DeviceOFTableType;
 import org.onosproject.net.table.DeviceTableId;
 import org.onosproject.net.flow.criteria.PofCriterion;
@@ -69,17 +70,7 @@ public final class DistributedStoreSerializers {
             .register(OFMatch.class)
             .register(DeviceOFTableType.class)
             .register(DeviceTableId.class)
-            .register(PofCriterion.class)
-            .register(DefaultPofInstructions.PofInstructionApplyActions.class)
-            .register(PofAction.class)
-            .register(DefaultPofActions.class)
-            .register(DefaultPofActions.PofActionOutput.class)
-            .register(PofInstruction.class)
-            .register(OFInstructionApplyActions.class)
-            .register(OFAction.class)
-            .register(OFActionType.class)
-            .register(OFActionOutput.class)
-            .register(OFInstructionType.class)
+            .register(DefaultFlowTableEntry.class)
             .build();
 
     // avoid instantiation

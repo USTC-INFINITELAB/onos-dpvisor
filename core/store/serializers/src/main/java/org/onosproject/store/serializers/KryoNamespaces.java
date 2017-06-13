@@ -220,16 +220,21 @@ import org.onosproject.store.service.Versioned;
 import org.onosproject.store.service.WorkQueueStats;
 import org.onosproject.ui.model.topo.UiTopoLayoutId;
 
-import org.onosproject.net.flow.instructions.PofAction;
 import org.onosproject.net.flow.instructions.PofInstruction;
 import org.onosproject.net.flow.criteria.PofCriterion;
 import org.onosproject.net.flow.instructions.DefaultPofActions;
 import org.onosproject.net.flow.instructions.DefaultPofInstructions;
 import org.onosproject.floodlightpof.protocol.instruction.OFInstructionApplyActions;
+import org.onosproject.floodlightpof.protocol.instruction.OFInstructionGotoTable;
 import org.onosproject.floodlightpof.protocol.action.OFAction;
 import org.onosproject.floodlightpof.protocol.action.OFActionOutput;
 import org.onosproject.floodlightpof.protocol.action.OFActionType;
 import org.onosproject.floodlightpof.protocol.instruction.OFInstructionType;
+import org.onosproject.floodlightpof.protocol.action.OFActionAddField;
+import org.onosproject.floodlightpof.protocol.action.OFActionDeleteField;
+import org.onosproject.floodlightpof.protocol.action.OFActionPacketIn;
+import org.onosproject.floodlightpof.protocol.action.OFActionCounter;
+import org.onosproject.floodlightpof.protocol.action.OFActionDrop;
 
 import java.net.URI;
 import java.time.Duration;
@@ -581,14 +586,31 @@ public final class KryoNamespaces {
     public static final KryoNamespace POF = KryoNamespace.newBuilder()
             .register(API)
             .register(PofCriterion.class)
-            .register(PofAction.class)
-            .register(DefaultPofActions.class)
             .register(DefaultPofActions.PofActionOutput.class)
-            .register(PofInstruction.class)
+            .register(DefaultPofActions.PofActionAddField.class)
+            .register(DefaultPofActions.PofActionDeleteField.class)
+            .register(DefaultPofActions.PofActionPacketIn.class)
+            .register(DefaultPofActions.PofActionType.class)
+            .register(DefaultPofActions.PofActionDrop.class)
+            .register(DefaultPofActions.PofActionModifyField.class)
+            .register(DefaultPofActions.PofActionCounter.class)
+            .register(DefaultPofActions.PofActionSetField.class)
+            .register(PofInstruction.PofInstructionType.class)
             .register(DefaultPofInstructions.PofInstructionApplyActions.class)
+            .register(DefaultPofInstructions.PofInstructionCalcField.class)
+            .register(DefaultPofInstructions.PofInstructionGotoDirectTable.class)
+            .register(DefaultPofInstructions.PofInstructionGotoTable.class)
+            .register(DefaultPofInstructions.PofInstructionWriteMetadata.class)
+            .register(DefaultPofInstructions.PofInstructionWriteMetadataFromPacket.class)
             .register(OFInstructionApplyActions.class)
+            .register(OFInstructionGotoTable.class)
             .register(OFAction.class)
             .register(OFActionOutput.class)
+            .register(OFActionAddField.class)
+            .register(OFActionDeleteField.class)
+            .register(OFActionPacketIn.class)
+            .register(OFActionDrop.class)
+            .register(OFActionCounter.class)
             .register(OFActionType.class)
             .register(OFInstructionType.class)
             .build();
