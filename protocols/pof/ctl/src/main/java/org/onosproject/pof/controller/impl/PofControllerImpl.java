@@ -237,6 +237,7 @@ public class PofControllerImpl implements PofController {
 
     @Override
     public void processPacket(Dpid dpid, OFMessage msg) {
+        PofSwitch sw = this.getSwitch(dpid);
         switch (msg.getType()) {
             case PORT_STATUS:
                 for (PofSwitchListener l : ofSwitchListener) {
@@ -249,6 +250,10 @@ public class PofControllerImpl implements PofController {
                 }
                 break;
             case PACKET_IN:
+                if (sw == null) {
+                    log.error("Ignoring PACKET_IN, switch {} is not found", dpid);
+                    break;
+                }
                 PofPacketContext pktCtx = DefaultPofPacketContext
                         .packetContextFromPacketIn(this.getSwitch(dpid),
                                 (OFPacketIn) msg);
@@ -256,7 +261,6 @@ public class PofControllerImpl implements PofController {
                     p.handlePacket(pktCtx);
                 }
                 break;
-            //added by hdy to process table resource
             case RESOURCE_REPORT:
                 for (PofSwitchListener l : ofSwitchListener) {
                     log.info("++++ pofctlimpl RESOURCE_REPORT");
