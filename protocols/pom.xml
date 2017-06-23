@@ -40,11 +40,11 @@
         <module>ospf</module>
         <module>isis</module>
         <module>snmp</module>
-        <module>bmv2</module>
         <module>lisp</module>
         <module>restconf</module>
         <module>tl1</module>
         <module>pof</module>
+        <module>grpc</module>
     </modules>
 
     <dependencies>

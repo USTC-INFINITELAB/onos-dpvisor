@@ -105,7 +105,9 @@ import org.onosproject.net.flow.FlowRuleBatchOperation;
 import org.onosproject.net.flow.FlowRuleBatchRequest;
 import org.onosproject.net.flow.FlowRuleEvent;
 import org.onosproject.net.flow.FlowRuleExtPayLoad;
+import org.onosproject.net.flow.IndexTableId;
 import org.onosproject.net.flow.StoredFlowEntry;
+import org.onosproject.net.flow.TableId;
 import org.onosproject.net.flow.TableStatisticsEntry;
 import org.onosproject.net.flow.criteria.ArpHaCriterion;
 import org.onosproject.net.flow.criteria.ArpOpCriterion;
@@ -168,8 +170,6 @@ import org.onosproject.net.intent.IntentOperation;
 import org.onosproject.net.intent.IntentState;
 import org.onosproject.net.intent.Key;
 import org.onosproject.net.intent.LinkCollectionIntent;
-import org.onosproject.net.intent.MplsIntent;
-import org.onosproject.net.intent.MplsPathIntent;
 import org.onosproject.net.intent.MultiPointToSinglePointIntent;
 import org.onosproject.net.intent.OpticalCircuitIntent;
 import org.onosproject.net.intent.OpticalConnectivityIntent;
@@ -196,6 +196,7 @@ import org.onosproject.net.meter.MeterId;
 import org.onosproject.net.packet.DefaultOutboundPacket;
 import org.onosproject.net.packet.DefaultPacketRequest;
 import org.onosproject.net.packet.PacketPriority;
+import org.onosproject.net.pi.runtime.PiTableId;
 import org.onosproject.net.provider.ProviderId;
 import org.onosproject.net.region.DefaultRegion;
 import org.onosproject.net.region.Region;
@@ -372,6 +373,9 @@ public final class KryoNamespaces {
                     DefaultFlowEntry.class,
                     StoredFlowEntry.class,
                     DefaultFlowRule.class,
+                    TableId.class,
+                    IndexTableId.class,
+                    PiTableId.class,
                     FlowRule.FlowRemoveReason.class,
                     DefaultPacketRequest.class,
                     PacketPriority.class,
@@ -560,8 +564,6 @@ public final class KryoNamespaces {
             .register(TributarySlot.class)
             .register(OtuSignalType.class)
             .register(
-                    MplsIntent.class,
-                    MplsPathIntent.class,
                     org.onlab.packet.MplsLabel.class,
                     org.onlab.packet.MPLS.class
             )

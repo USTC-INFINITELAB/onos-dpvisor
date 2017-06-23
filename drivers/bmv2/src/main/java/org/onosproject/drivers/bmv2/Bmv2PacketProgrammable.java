@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-present Open Networking Laboratory
+ * Copyright 2017-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,90 +16,40 @@
 
 package org.onosproject.drivers.bmv2;
 
-import org.onlab.osgi.ServiceNotFoundException;
-import org.onlab.util.ImmutableByteSequence;
-import org.onosproject.bmv2.api.runtime.Bmv2DeviceAgent;
-import org.onosproject.bmv2.api.runtime.Bmv2RuntimeException;
-import org.onosproject.bmv2.api.service.Bmv2Controller;
+import io.grpc.stub.StreamObserver;
+import org.onosproject.grpc.api.GrpcChannelId;
+import org.onosproject.grpc.api.GrpcController;
+import org.onosproject.grpc.api.GrpcObserverHandler;
+import org.onosproject.grpc.api.GrpcServiceId;
+import org.onosproject.grpc.api.GrpcStreamObserverId;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.driver.AbstractHandlerBehaviour;
-import org.onosproject.net.flow.TrafficTreatment;
+import org.onosproject.net.driver.DriverHandler;
 import org.onosproject.net.packet.OutboundPacket;
 import org.onosproject.net.packet.PacketProgrammable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.util.List;
-
-import static java.lang.Math.toIntExact;
-import static java.util.stream.Collectors.toList;
-import static org.onosproject.net.flow.instructions.Instruction.Type.OUTPUT;
-import static org.onosproject.net.flow.instructions.Instructions.OutputInstruction;
+import java.util.Optional;
 
 /**
- * Implementation of the packet programmable behaviour for BMv2.
+ * Packet Programmable behaviour for BMv2 devices.
  */
 public class Bmv2PacketProgrammable extends AbstractHandlerBehaviour implements PacketProgrammable {
-
-    private final Logger log = LoggerFactory.getLogger(this.getClass());
-
     @Override
     public void emit(OutboundPacket packet) {
-
-        TrafficTreatment treatment = packet.treatment();
-
-        // BMv2 supports only OUTPUT instructions.
-        List<OutputInstruction> outInstructions = treatment.allInstructions()
-                .stream()
-                .filter(i -> i.type().equals(OUTPUT))
-                .map(i -> (OutputInstruction) i)
-                .collect(toList());
-
-        if (treatment.allInstructions().size() != outInstructions.size()) {
-            // There are other instructions that are not of type OUTPUT
-            log.warn("Dropping emit request, treatment nor supported: {}", treatment);
-            return;
+        DriverHandler handler = handler();
+        GrpcController controller = handler.get(GrpcController.class);
+        DeviceId deviceId = handler.data().deviceId();
+        GrpcChannelId channelId = GrpcChannelId.of(deviceId, "bmv2");
+        GrpcServiceId serviceId = GrpcServiceId.of(channelId, "p4runtime");
+        GrpcStreamObserverId observerId = GrpcStreamObserverId.of(serviceId,
+                this.getClass().getSimpleName());
+        Optional<GrpcObserverHandler> manager = controller.getObserverManager(observerId);
+        if (!manager.isPresent()) {
+            //this is the first time the behaviour is called
+            controller.addObserver(observerId, new Bmv2PacketInObserverHandler());
         }
-
-        outInstructions.forEach(outInst -> {
-            if (outInst.port().isLogical()) {
-                log.warn("Dropping emit request, logical port not supported: {}", outInst.port());
-            } else {
-                try {
-                    int portNumber = toIntExact(outInst.port().toLong());
-                    send(portNumber, packet);
-                } catch (ArithmeticException e) {
-                    log.error("Dropping emit request, port number too big: {}", outInst.port().toLong());
-                }
-            }
-        });
-    }
-
-    private void send(int port, OutboundPacket packet) {
-
-        DeviceId deviceId = handler().data().deviceId();
-
-        Bmv2Controller controller;
-        try {
-            controller = handler().get(Bmv2Controller.class);
-        } catch (ServiceNotFoundException e) {
-            log.warn(e.getMessage());
-            return;
-        }
-
-        Bmv2DeviceAgent deviceAgent;
-        try {
-            deviceAgent = controller.getAgent(deviceId);
-        } catch (Bmv2RuntimeException e) {
-            log.error("Failed to get Bmv2 device agent for {}: {}", deviceId, e.explain());
-            return;
-        }
-
-        ImmutableByteSequence bs = ImmutableByteSequence.copyFrom(packet.data());
-        try {
-            deviceAgent.transmitPacket(port, bs);
-        } catch (Bmv2RuntimeException e) {
-            log.warn("Unable to emit packet trough {}: {}", deviceId, e.explain());
-        }
+        //other already registered the observer for us.
+        Optional<StreamObserver> observer = manager.get().requestStreamObserver();
+        observer.ifPresent(objectStreamObserver -> objectStreamObserver.onNext(packet));
     }
 }

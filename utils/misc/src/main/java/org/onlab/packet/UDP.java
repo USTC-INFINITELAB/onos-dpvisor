@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-
-
 package org.onlab.packet;
 
 import java.nio.ByteBuffer;
-import java.util.HashMap;
 import java.util.Map;
+
+import com.google.common.collect.ImmutableMap;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static org.onlab.packet.PacketUtils.*;
@@ -30,21 +29,21 @@ import static org.onlab.packet.PacketUtils.*;
  */
 public class UDP extends BasePacket {
     public static final Map<Integer, Deserializer<? extends IPacket>> PORT_DESERIALIZER_MAP =
-            new HashMap<>();
+            ImmutableMap.<Integer, Deserializer<? extends IPacket>>builder()
+                    .put(UDP.DHCP_SERVER_PORT, DHCP.deserializer())
+                    .put(UDP.DHCP_CLIENT_PORT, DHCP.deserializer())
+                    .put(UDP.DHCP_V6_SERVER_PORT, DHCP6.deserializer())
+                    .put(UDP.DHCP_V6_CLIENT_PORT, DHCP6.deserializer())
+                    .put(UDP.VXLAN_UDP_PORT, VXLAN.deserializer())
+                    .build();
+
     public static final int DHCP_SERVER_PORT = 67;
     public static final int DHCP_CLIENT_PORT = 68;
+    public static final int DHCP_V6_SERVER_PORT = 547;
+    public static final int DHCP_V6_CLIENT_PORT = 546;
+    public static final int VXLAN_UDP_PORT = 4789;
 
     private static final short UDP_HEADER_LENGTH = 8;
-
-    static {
-        /*
-         * Disable DHCP until the deserialize code is hardened to deal with
-         * garbage input
-         */
-        UDP.PORT_DESERIALIZER_MAP.put(UDP.DHCP_SERVER_PORT, DHCP.deserializer());
-        UDP.PORT_DESERIALIZER_MAP.put(UDP.DHCP_CLIENT_PORT, DHCP.deserializer());
-
-    }
 
     protected int sourcePort;
     protected int destinationPort;

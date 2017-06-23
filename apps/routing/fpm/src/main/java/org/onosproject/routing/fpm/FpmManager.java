@@ -16,7 +16,6 @@
 
 package org.onosproject.routing.fpm;
 
-import com.google.common.collect.ImmutableMap;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
@@ -35,6 +34,8 @@ import org.jboss.netty.channel.Channels;
 import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.group.DefaultChannelGroup;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
+import org.jboss.netty.handler.timeout.IdleStateHandler;
+import org.jboss.netty.util.HashedWheelTimer;
 import org.onlab.packet.IpAddress;
 import org.onlab.packet.IpPrefix;
 import org.onlab.util.KryoNamespace;
@@ -42,6 +43,7 @@ import org.onlab.util.Tools;
 import org.onosproject.cfg.ComponentConfigService;
 import org.onosproject.cluster.ClusterService;
 import org.onosproject.cluster.NodeId;
+import org.onosproject.core.CoreService;
 import org.onosproject.incubator.net.routing.Route;
 import org.onosproject.incubator.net.routing.RouteAdminService;
 import org.onosproject.routing.fpm.protocol.FpmHeader;
@@ -61,6 +63,7 @@ import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Dictionary;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -68,6 +71,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.onlab.util.Tools.groupedThreads;
@@ -81,6 +85,11 @@ public class FpmManager implements FpmInfoService {
     private final Logger log = LoggerFactory.getLogger(getClass());
 
     private static final int FPM_PORT = 2620;
+    private static final String APP_NAME = "org.onosproject.fpm";
+    private static final int IDLE_TIMEOUT_SECS = 5;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected CoreService coreService;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected ComponentConfigService componentConfigService;
@@ -126,6 +135,9 @@ public class FpmManager implements FpmInfoService {
 
         modified(context);
         startServer();
+
+        coreService.registerApplication(APP_NAME, peers::destroy);
+
         log.info("Started");
     }
 
@@ -154,19 +166,24 @@ public class FpmManager implements FpmInfoService {
     }
 
     private void startServer() {
+        HashedWheelTimer timer = new HashedWheelTimer(
+                groupedThreads("onos/fpm", "fpm-timer-%d", log));
+
         ChannelFactory channelFactory = new NioServerSocketChannelFactory(
                 newCachedThreadPool(groupedThreads("onos/fpm", "sm-boss-%d", log)),
                 newCachedThreadPool(groupedThreads("onos/fpm", "sm-worker-%d", log)));
         ChannelPipelineFactory pipelineFactory = () -> {
             // Allocate a new session per connection
+            IdleStateHandler idleHandler =
+                    new IdleStateHandler(timer, IDLE_TIMEOUT_SECS, 0, 0);
             FpmSessionHandler fpmSessionHandler =
                     new FpmSessionHandler(new InternalFpmListener());
-            FpmFrameDecoder fpmFrameDecoder =
-                    new FpmFrameDecoder();
+            FpmFrameDecoder fpmFrameDecoder = new FpmFrameDecoder();
 
             // Setup the processing pipeline
             ChannelPipeline pipeline = Channels.pipeline();
             pipeline.addLast("FpmFrameDecoder", fpmFrameDecoder);
+            pipeline.addLast("idle", idleHandler);
             pipeline.addLast("FpmSession", fpmSessionHandler);
             return pipeline;
         };
@@ -201,6 +218,10 @@ public class FpmManager implements FpmInfoService {
     }
 
     private void fpmMessage(FpmPeer peer, FpmHeader fpmMessage) {
+        if (fpmMessage.type() == FpmHeader.FPM_TYPE_KEEPALIVE) {
+            return;
+        }
+
         Netlink netlink = fpmMessage.netlink();
         RtNetlink rtNetlink = netlink.rtNetlink();
 
@@ -284,11 +305,17 @@ public class FpmManager implements FpmInfoService {
         }
     }
 
+    private FpmPeerInfo toFpmInfo(FpmPeer peer, Collection<FpmConnectionInfo> connections) {
+        return new FpmPeerInfo(connections,
+                fpmRoutes.getOrDefault(peer, Collections.emptyMap()).size());
+    }
+
     @Override
-    public Map<FpmPeer, Collection<FpmConnectionInfo>> peers() {
-        return ImmutableMap.<FpmPeer, Collection<FpmConnectionInfo>>builder()
-                .putAll(peers.asJavaMap())
-                .build();
+    public Map<FpmPeer, FpmPeerInfo> peers() {
+        return peers.asJavaMap().entrySet().stream()
+                .collect(Collectors.toMap(
+                        e -> e.getKey(),
+                        e -> toFpmInfo(e.getKey(), e.getValue())));
     }
 
     private class InternalFpmListener implements FpmListener {
@@ -326,6 +353,10 @@ public class FpmManager implements FpmInfoService {
             }
 
             peers.compute(peer, (p, infos) -> {
+                if (infos == null) {
+                    return null;
+                }
+
                 infos.stream()
                         .filter(i -> i.connectedTo().equals(clusterService.getLocalNode().id()))
                         .findAny()

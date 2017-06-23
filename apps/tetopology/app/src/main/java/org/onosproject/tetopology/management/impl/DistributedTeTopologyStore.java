@@ -124,7 +124,6 @@ import org.onosproject.tetopology.management.api.node.TtpKey;
 import org.onosproject.tetopology.management.api.node.TunnelTerminationPoint;
 import org.slf4j.Logger;
 
-import com.esotericsoftware.kryo.serializers.JavaSerializer;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
@@ -137,6 +136,7 @@ public class DistributedTeTopologyStore
     extends AbstractStore<TeTopologyEvent, TeTopologyStoreDelegate>
     implements TeTopologyStore {
     private static final String STORE_NAME = "TE_NETWORK_TOPOLOGY_STORE";
+    private static final String COUNTER_NAME = "TeTopology-TeTopologyId";
     private static final String TETOPOLOGYKEY_INTERNALTETOPOLOGY = "TeTopologyKey-InternalTeTopology";
     private static final String NETWORKID_NETWORK = "NetworkId-InternalNetwork";
     private static final String TENODEKEY_INTERNALTENODE = "TeNodeKey-InternalTeNode";
@@ -212,7 +212,6 @@ public class DistributedTeTopologyStore
                     .register(CommonTopologyData.class)
                     .register(KeyId.class)
                     .register(OptimizationType.class)
-                    .register(new JavaSerializer(), BitSet.class)
                     .register(InternalTeTopology.class)
                     .register(InternalNetwork.class)
                     .register(InternalTerminationPoint.class)
@@ -340,7 +339,7 @@ public class DistributedTeTopologyStore
                   .build();
         ttpMap = ttpConsistentMap.asJavaMap();
 
-        nextTeTopologyId = storageService.getAtomicCounter("COUNTER_NAME");
+        nextTeTopologyId = storageService.getAtomicCounter(COUNTER_NAME);
         log.info("Started");
     }
 

@@ -21,7 +21,6 @@ import org.onlab.packet.IpAddress;
 import org.onlab.packet.IpPrefix;
 import org.onlab.util.KryoNamespace;
 import org.onosproject.incubator.net.routing.InternalRouteEvent;
-import org.onosproject.incubator.net.routing.NextHopData;
 import org.onosproject.incubator.net.routing.Route;
 import org.onosproject.incubator.net.routing.RouteSet;
 import org.onosproject.incubator.net.routing.RouteStore;
@@ -43,6 +42,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import static org.onlab.util.Tools.groupedThreads;
 
 /**
  * Route store based on distributed storage.
@@ -75,7 +76,7 @@ public class DistributedRouteStore extends AbstractStore<InternalRouteEvent, Rou
      */
     public void activate() {
         routeTables = new ConcurrentHashMap<>();
-        executor = Executors.newSingleThreadExecutor();
+        executor = Executors.newSingleThreadExecutor(groupedThreads("onos/route", "store", log));
 
         KryoNamespace masterRouteTableSerializer = KryoNamespace.newBuilder()
                 .register(RouteTableId.class)
@@ -135,12 +136,6 @@ public class DistributedRouteStore extends AbstractStore<InternalRouteEvent, Rou
     }
 
     @Override
-    public Route longestPrefixMatch(IpAddress ip) {
-        // Not supported
-        return null;
-    }
-
-    @Override
     public Collection<Route> getRoutesForNextHop(IpAddress ip) {
         return getDefaultRouteTable(ip).getRoutesForNextHop(ip);
     }
@@ -150,30 +145,8 @@ public class DistributedRouteStore extends AbstractStore<InternalRouteEvent, Rou
         return getDefaultRouteTable(prefix.address()).getRoutes(prefix);
     }
 
-    @Override
-    public void updateNextHop(IpAddress ip, NextHopData nextHopData) {
-        // Not supported
-    }
-
-    @Override
-    public void removeNextHop(IpAddress ip, NextHopData nextHopData) {
-        // Not supported
-    }
-
-    @Override
-    public NextHopData getNextHop(IpAddress ip) {
-        // Not supported
-        return null;
-    }
-
-    @Override
-    public Map<IpAddress, NextHopData> getNextHops() {
-        // Not supported
-        return Collections.emptyMap();
-    }
-
     private void createRouteTable(RouteTableId tableId) {
-        routeTables.computeIfAbsent(tableId, id -> new DefaultRouteTable(id, ourDelegate, storageService));
+        routeTables.computeIfAbsent(tableId, id -> new DefaultRouteTable(id, ourDelegate, storageService, executor));
     }
 
     private void destroyRouteTable(RouteTableId tableId) {

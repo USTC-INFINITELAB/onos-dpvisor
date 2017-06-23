@@ -89,9 +89,15 @@ public interface Instruction {
         L4MODIFICATION,
 
         /**
+         * Signifies that a protocol-independent instruction will be used.
+         */
+        PROTOCOL_INDEPENDENT,
+
+        /**
          * Signfies that an POF instruction will be used.
          */
         POFINSTRUCTION,
+
         /**
          * Signfies that an POF action will be used.
          */

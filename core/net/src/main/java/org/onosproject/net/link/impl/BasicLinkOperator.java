@@ -58,11 +58,11 @@ public final class BasicLinkOperator implements ConfigOperator {
             return descr;
         }
 
-        // cfg.type() defaults to DIRECT, so there is a risk of unwanted override.
-        // do we want this behavior?
         Link.Type type = descr.type();
-        if (cfg.type() != type) {
-            type = cfg.type();
+        if (cfg.isTypeConfigured()) {
+            if (cfg.type() != type) {
+                type = cfg.type();
+            }
         }
 
         SparseAnnotations sa = combine(cfg, descr.annotations());
@@ -78,6 +78,7 @@ public final class BasicLinkOperator implements ConfigOperator {
      */
     public static SparseAnnotations combine(BasicLinkConfig cfg, SparseAnnotations an) {
         DefaultAnnotations.Builder b = DefaultAnnotations.builder();
+        b.putAll(an);
         if (cfg.metric() != DEF_METRIC) {
             b.set(AnnotationKeys.METRIC, String.valueOf(cfg.metric()));
         }
@@ -92,7 +93,7 @@ public final class BasicLinkOperator implements ConfigOperator {
         if (cfg.isDurable() != null) {
             b.set(AnnotationKeys.DURABLE, String.valueOf(cfg.isDurable()));
         }
-        return DefaultAnnotations.union(an, b.build());
+        return b.build();
     }
 
     /**

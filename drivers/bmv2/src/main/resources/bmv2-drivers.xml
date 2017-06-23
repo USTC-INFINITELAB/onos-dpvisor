@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-
 <!--
-  ~ Copyright 2016-present Open Networking Laboratory
+  ~ Copyright 2017-present Open Networking Laboratory
   ~
   ~ Licensed under the Apache License, Version 2.0 (the "License");
   ~ you may not use this file except in compliance with the License.
@@ -16,18 +15,11 @@
   ~ limitations under the License.
   -->
 <drivers>
-    <driver name="bmv2-thrift" manufacturer="p4.org" hwVersion="bmv2" swVersion="1.0.0">
-        <behaviour api="org.onosproject.net.device.DeviceDescriptionDiscovery"
-                   impl="org.onosproject.drivers.bmv2.Bmv2DeviceDescriptionDiscovery"/>
-        <behaviour api="org.onosproject.net.flow.FlowRuleProgrammable"
-                   impl="org.onosproject.drivers.bmv2.Bmv2FlowRuleProgrammable"/>
-        <behaviour api="org.onosproject.net.behaviour.Pipeliner"
-                   impl="org.onosproject.drivers.bmv2.Bmv2Pipeliner"/>
+    <driver name="bmv2" manufacturer="p4.org" hwVersion="master" swVersion="master">
+        <behaviour api="org.onosproject.net.device.DeviceHandshaker"
+                   impl="org.onosproject.drivers.bmv2.Bmv2Handshaker"/>
         <behaviour api="org.onosproject.net.packet.PacketProgrammable"
                    impl="org.onosproject.drivers.bmv2.Bmv2PacketProgrammable"/>
-        <behaviour api="org.onosproject.net.behaviour.ExtensionSelectorResolver"
-                   impl="org.onosproject.drivers.bmv2.Bmv2ExtensionSelectorResolver"/>
-        <behaviour api="org.onosproject.net.behaviour.ExtensionTreatmentResolver"
-                   impl="org.onosproject.drivers.bmv2.Bmv2ExtensionTreatmentResolver"/>
     </driver>
 </drivers>
+

@@ -16,7 +16,6 @@
 
 package org.onosproject.incubator.net.virtual.impl.provider;
 
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
@@ -32,6 +31,9 @@ import org.onosproject.incubator.net.virtual.TenantId;
 import org.onosproject.incubator.net.virtual.VirtualDevice;
 import org.onosproject.incubator.net.virtual.VirtualNetwork;
 import org.onosproject.incubator.net.virtual.VirtualNetworkAdminService;
+import org.onosproject.incubator.net.virtual.VirtualNetworkEvent;
+import org.onosproject.incubator.net.virtual.VirtualNetworkListener;
+import org.onosproject.incubator.net.virtual.VirtualPacketContext;
 import org.onosproject.incubator.net.virtual.VirtualPort;
 import org.onosproject.incubator.net.virtual.provider.AbstractVirtualProvider;
 import org.onosproject.incubator.net.virtual.provider.VirtualPacketProvider;
@@ -59,7 +61,6 @@ import org.slf4j.Logger;
 import java.nio.ByteBuffer;
 import java.util.Dictionary;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -87,12 +88,13 @@ public class DefaultVirtualPacketProvider extends AbstractVirtualProvider
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected VirtualProviderRegistryService providerRegistryService;
 
-    ApplicationId appId;
-    InternalPacketProcessor processor;
+    private final VirtualNetworkListener virtualNetListener = new InternalVirtualNetworkListener();
 
-    private Map<VirtualPacketContext, PacketContext> contextMap;
+    private InternalPacketProcessor processor = null;
 
-    private Set<NetworkId> requestsSet = Sets.newHashSet();
+    private Set<NetworkId> networkIdSet = Sets.newConcurrentHashSet();
+
+    private ApplicationId appId;
 
     /**
      * Creates a provider with the supplied identifier.
@@ -105,18 +107,17 @@ public class DefaultVirtualPacketProvider extends AbstractVirtualProvider
     public void activate() {
         appId = coreService.registerApplication("org.onosproject.virtual.virtual-packet");
         providerRegistryService.registerProvider(this);
-
-        contextMap = Maps.newConcurrentMap();
+        vnaService.addListener(virtualNetListener);
 
         log.info("Started");
     }
 
     @Deactivate
     public void deactivate() {
-        if (processor != null) {
-            packetService.removeProcessor(processor);
-        }
+
         providerRegistryService.unregisterProvider(this);
+        vnaService.removeListener(virtualNetListener);
+
         log.info("Stopped");
     }
 
@@ -128,30 +129,34 @@ public class DefaultVirtualPacketProvider extends AbstractVirtualProvider
 
     @Override
     public void emit(NetworkId networkId, OutboundPacket packet) {
-       packetService.emit(devirtualize(networkId, packet));
+       devirtualize(networkId, packet)
+               .forEach(outboundPacket -> packetService.emit(outboundPacket));
     }
 
-    @Override
-    public void startPacketHandling(NetworkId networkId) {
-        requestsSet.add(networkId);
-        if (processor == null) {
-            processor = new InternalPacketProcessor();
-            packetService.addProcessor(processor, PACKET_PROCESSOR_PRIORITY);
-        }
+    /**
+     * Just for test.
+     */
+    protected void startPacketHandling() {
+        processor = new InternalPacketProcessor();
+        packetService.addProcessor(processor, PACKET_PROCESSOR_PRIORITY);
     }
 
-    @Override
-    public void stopPacketHandling(NetworkId networkId) {
-        requestsSet.remove(networkId);
-        if (requestsSet.isEmpty()) {
-            packetService.removeProcessor(processor);
-            processor = null;
-        }
+    /**
+     * Send the outbound packet of a virtual context.
+     * This method is designed to support Context's send() method that invoked
+     * by applications.
+     * See {@link org.onosproject.net.packet.PacketContext}
+     *
+     * @param virtualPacketContext virtual packet context
+     */
+    protected void send(VirtualPacketContext virtualPacketContext) {
+        devirtualizeContext(virtualPacketContext)
+                .forEach(outboundPacket -> packetService.emit(outboundPacket));
     }
 
     /**
      * Translate the requested physical PacketContext into a virtual PacketContext.
-     * See {@link org.onosproject.net.packet.OutboundPacket}
+     * See {@link org.onosproject.net.packet.PacketContext}
      *
      * @param context A physical PacketContext be translated
      * @return A translated virtual PacketContext
@@ -177,11 +182,9 @@ public class DefaultVirtualPacketProvider extends AbstractVirtualProvider
                                               ByteBuffer.wrap(eth.serialize()));
 
             VirtualPacketContext vContext =
-                    new VirtualPacketContext(context.time(), inPacket, outPkt,
+                    new DefaultVirtualPacketContext(context.time(), inPacket, outPkt,
                                              false, vPort.networkId(),
                                              this);
-
-            contextMap.put(vContext, context);
 
             return vContext;
         } else {
@@ -222,32 +225,17 @@ public class DefaultVirtualPacketProvider extends AbstractVirtualProvider
     }
 
     /**
-     * Translate the requested a virtual outbound packet into
-     * a physical OutboundPacket.
-     * See {@link org.onosproject.net.packet.PacketContext}
+     * Translate the requested virtual outbound packet into
+     * a set of physical OutboundPacket.
+     * See {@link org.onosproject.net.packet.OutboundPacket}
      *
-     * @param packet A OutboundPacket to be translated
-     * @return de-virtualized (physical) OutboundPacket
+     * @param packet an OutboundPacket to be translated
+     * @return a set of de-virtualized (physical) OutboundPacket
      */
-    private OutboundPacket devirtualize(NetworkId networkId, OutboundPacket packet) {
+    private Set<OutboundPacket> devirtualize(NetworkId networkId, OutboundPacket packet) {
+        Set<OutboundPacket> outboundPackets = new HashSet<>();
         Set<VirtualPort> vPorts = vnaService
                 .getVirtualPorts(networkId, packet.sendThrough());
-
-        PortNumber vOutPortNum = packet.treatment().allInstructions().stream()
-                .filter(i -> i.type() == Instruction.Type.OUTPUT)
-                .map(i -> ((Instructions.OutputInstruction) i).port())
-                .findFirst().get();
-
-        Optional<ConnectPoint> optionalCpOut = vPorts.stream()
-                .filter(v -> v.number().equals(vOutPortNum))
-                .map(v -> v.realizedBy())
-                .findFirst();
-        if (!optionalCpOut.isPresent()) {
-            log.warn("Port {} is not realized yet, in Network {}, Device {}",
-                     vOutPortNum, networkId, packet.sendThrough());
-            return null;
-        }
-        ConnectPoint egressPoint = optionalCpOut.get();
 
         TrafficTreatment.Builder commonTreatmentBuilder
                 = DefaultTrafficTreatment.builder();
@@ -256,30 +244,68 @@ public class DefaultVirtualPacketProvider extends AbstractVirtualProvider
                 .forEach(i -> commonTreatmentBuilder.add(i));
         TrafficTreatment commonTreatment = commonTreatmentBuilder.build();
 
-        TrafficTreatment treatment = DefaultTrafficTreatment
-                .builder(commonTreatment)
-                .setOutput(egressPoint.port()).build();
+        PortNumber vOutPortNum = packet.treatment().allInstructions().stream()
+                .filter(i -> i.type() == Instruction.Type.OUTPUT)
+                .map(i -> ((Instructions.OutputInstruction) i).port())
+                .findFirst().get();
 
-        OutboundPacket outboundPacket = new DefaultOutboundPacket(
-                egressPoint.deviceId(), treatment, packet.data());
-        return outboundPacket;
+        if (!vOutPortNum.isLogical()) {
+            Optional<ConnectPoint> optionalCpOut = vPorts.stream()
+                    .filter(v -> v.number().equals(vOutPortNum))
+                    .map(v -> v.realizedBy())
+                    .findFirst();
+            if (!optionalCpOut.isPresent()) {
+                log.warn("Port {} is not realized yet, in Network {}, Device {}",
+                        vOutPortNum, networkId, packet.sendThrough());
+                return outboundPackets;
+            }
+            ConnectPoint egressPoint = optionalCpOut.get();
+
+            TrafficTreatment treatment = DefaultTrafficTreatment
+                    .builder(commonTreatment)
+                    .setOutput(egressPoint.port()).build();
+
+            OutboundPacket outboundPacket = new DefaultOutboundPacket(
+                    egressPoint.deviceId(), treatment, packet.data());
+            outboundPackets.add(outboundPacket);
+        } else {
+            if (vOutPortNum == PortNumber.FLOOD) {
+                for (VirtualPort outPort : vPorts) {
+                    ConnectPoint cpOut = outPort.realizedBy();
+                    if (cpOut != null) {
+                        TrafficTreatment treatment = DefaultTrafficTreatment
+                                .builder(commonTreatment)
+                                .setOutput(cpOut.port()).build();
+                        OutboundPacket outboundPacket = new DefaultOutboundPacket(
+                                cpOut.deviceId(), treatment, packet.data());
+                        outboundPackets.add(outboundPacket);
+                    } else {
+                        log.warn("Port {} is not realized yet, in Network {}, Device {}",
+                                outPort.number(), networkId, packet.sendThrough());
+                    }
+                }
+            }
+        }
+
+        return outboundPackets;
     }
 
     /**
-     * Translate the requested a virtual Packet Context into
-     * a physical Packet Context.
-     * This method is designed to support Context's send() method that invoked
-     * by applications.
-     * See {@link org.onosproject.net.packet.PacketContext}
+     * Translate the requested virtual packet context into
+     * a set of physical outbound packets.
      *
-     * @param context A handled packet context
+     * @param context A handled virtual packet context
      */
-    public void devirtualizeContext(VirtualPacketContext context) {
-        NetworkId networkId = context.getNetworkId();
+    private Set<OutboundPacket> devirtualizeContext(VirtualPacketContext context) {
 
+        Set<OutboundPacket> outboundPackets = new HashSet<>();
+
+        NetworkId networkId = context.networkId();
         TrafficTreatment vTreatment = context.treatmentBuilder().build();
-
         DeviceId sendThrough = context.outPacket().sendThrough();
+
+        Set<VirtualPort> vPorts = vnaService
+                .getVirtualPorts(networkId, sendThrough);
 
         PortNumber vOutPortNum = vTreatment.allInstructions().stream()
                 .filter(i -> i.type() == Instruction.Type.OUTPUT)
@@ -294,20 +320,26 @@ public class DefaultVirtualPacketProvider extends AbstractVirtualProvider
         TrafficTreatment commonTreatment = commonTreatmentBuilder.build();
 
         if (!vOutPortNum.isLogical()) {
-            TrafficTreatment treatment = DefaultTrafficTreatment
-                    .builder()
-                    .addTreatment(commonTreatment)
-                    .setOutput(vOutPortNum)
-                    .build();
+            Optional<ConnectPoint> optionalCpOut = vPorts.stream()
+                    .filter(v -> v.number().equals(vOutPortNum))
+                    .map(v -> v.realizedBy())
+                    .findFirst();
+            if (!optionalCpOut.isPresent()) {
+                log.warn("Port {} is not realized yet, in Network {}, Device {}",
+                        vOutPortNum, networkId, sendThrough);
+                return outboundPackets;
+            }
+            ConnectPoint egressPoint = optionalCpOut.get();
 
-            emit(networkId, new DefaultOutboundPacket(sendThrough,
-                                                      treatment,
-                                                      context.outPacket().data()));
+            TrafficTreatment treatment = DefaultTrafficTreatment
+                    .builder(commonTreatment)
+                    .setOutput(egressPoint.port()).build();
+
+            OutboundPacket outboundPacket = new DefaultOutboundPacket(
+                    egressPoint.deviceId(), treatment, context.outPacket().data());
+            outboundPackets.add(outboundPacket);
         } else {
             if (vOutPortNum == PortNumber.FLOOD) {
-                Set<VirtualPort> vPorts = vnaService
-                        .getVirtualPorts(networkId, sendThrough);
-
                 Set<VirtualPort> outPorts = vPorts.stream()
                         .filter(vp -> !vp.number().isLogical())
                         .filter(vp -> vp.number() !=
@@ -315,24 +347,31 @@ public class DefaultVirtualPacketProvider extends AbstractVirtualProvider
                         .collect(Collectors.toSet());
 
                 for (VirtualPort outPort : outPorts) {
-                    TrafficTreatment treatment = DefaultTrafficTreatment
-                            .builder()
-                            .addTreatment(commonTreatment)
-                            .setOutput(outPort.number())
-                            .build();
-
-                    emit(networkId, new DefaultOutboundPacket(sendThrough,
-                                                   treatment,
-                                                   context.outPacket().data()));
+                    ConnectPoint cpOut = outPort.realizedBy();
+                    if (cpOut != null) {
+                        TrafficTreatment treatment = DefaultTrafficTreatment
+                                .builder(commonTreatment)
+                                .setOutput(cpOut.port()).build();
+                        OutboundPacket outboundPacket = new DefaultOutboundPacket(
+                                cpOut.deviceId(), treatment, context.outPacket().data());
+                        outboundPackets.add(outboundPacket);
+                    } else {
+                        log.warn("Port {} is not realized yet, in Network {}, Device {}",
+                                outPort.number(), networkId, sendThrough);
+                    }
                 }
             }
         }
+        return outboundPackets;
     }
 
     private final class InternalPacketProcessor implements PacketProcessor {
 
         @Override
         public void process(PacketContext context) {
+            if (context.isHandled()) {
+                return;
+            }
             VirtualPacketContext vContexts = virtualize(context);
 
             if (vContexts == null) {
@@ -341,11 +380,42 @@ public class DefaultVirtualPacketProvider extends AbstractVirtualProvider
 
             VirtualPacketProviderService service =
                     (VirtualPacketProviderService) providerRegistryService
-                            .getProviderService(vContexts.getNetworkId(),
+                            .getProviderService(vContexts.networkId(),
                                                 VirtualPacketProvider.class);
             if (service != null) {
                 service.processPacket(vContexts);
             }
         }
     }
+
+    private class InternalVirtualNetworkListener implements VirtualNetworkListener {
+
+        @Override
+        public void event(VirtualNetworkEvent event) {
+            switch (event.type()) {
+                case NETWORK_ADDED:
+                    if (networkIdSet.isEmpty()) {
+                        processor = new InternalPacketProcessor();
+                        packetService.addProcessor(processor, PACKET_PROCESSOR_PRIORITY);
+                        log.info("Packet processor {} for virtual network is added.", processor.getClass().getName());
+                    }
+                    networkIdSet.add(event.subject());
+                    break;
+
+                case NETWORK_REMOVED:
+                    networkIdSet.remove(event.subject());
+                    if (networkIdSet.isEmpty()) {
+                        packetService.removeProcessor(processor);
+                        log.info("Packet processor {} for virtual network is removed.", processor.getClass().getName());
+                        processor = null;
+                    }
+                    break;
+
+                default:
+                    // do nothing
+                    break;
+            }
+        }
+    }
+
 }

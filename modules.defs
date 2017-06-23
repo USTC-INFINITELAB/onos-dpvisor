@@ -59,6 +59,8 @@ CORE = UTILS + API + [
     '//protocols/tl1/ctl:onos-protocols-tl1-ctl',
     '//protocols/restconf/client/api:onos-protocols-restconf-client-api',
     '//protocols/restconf/client/ctl:onos-protocols-restconf-client-ctl',
+    '//protocols/grpc/api:onos-protocols-grpc-api',
+    '//protocols/grpc/ctl:onos-protocols-grpc-ctl',
 
     '//drivers/utilities:onos-drivers-utilities',
 
@@ -80,9 +82,13 @@ CORE = UTILS + API + [
     '//providers/isis/topology:onos-providers-isis-topology',
     '//providers/lisp/device:onos-providers-lisp-device',
     '//providers/tl1/device:onos-providers-tl1-device',
+    '//providers/general/device:onos-providers-general-device',
 
     '//web/api:onos-rest',
     '//web/gui:onos-gui',
+
+    '//incubator/protobuf/models:onos-incubator-protobuf-models',
+    '//incubator/protobuf/services/nb:onos-incubator-protobuf-services-nb',
 ]
 
 ONOS_DRIVERS = [
@@ -92,7 +98,8 @@ ONOS_DRIVERS = [
     # TODO ONOS-5554 excluding from the build
     #'//drivers/bti:onos-drivers-bti-oar',
     '//drivers/ciena:onos-drivers-ciena-oar',
-    '//drivers/cisco:onos-drivers-cisco-oar',
+    '//drivers/cisco/netconf:onos-drivers-cisco-netconf-oar',
+    '//drivers/cisco/rest:onos-drivers-cisco-rest-oar',
     '//drivers/corsa:onos-drivers-corsa-oar',
     '//drivers/fujitsu:onos-drivers-fujitsu-oar',
     '//drivers/lumentum:onos-drivers-lumentum-oar',
@@ -106,6 +113,8 @@ ONOS_DRIVERS = [
 #   Removed until we can handle v1.12 of onos-yang-tools - in the mean time build manually with Maven
 #   '//drivers/microsemi/ea1000driver:onos-drivers-microsemi-ea1000driver-oar',
     '//drivers/oplink:onos-drivers-oplink-oar',
+    '//drivers/bmv2:onos-drivers-bmv2-oar',
+    '//drivers/hp:onos-drivers-hp-oar',
 ]
 
 ONOS_PROVIDERS = [
@@ -134,6 +143,7 @@ ONOS_PROVIDERS = [
     '//providers/link:onos-providers-link-oar',
     '//providers/lisp:onos-providers-lisp-oar',
     '//providers/tl1:onos-providers-tl1-oar',
+    '//providers/general:onos-providers-general-oar',
 #    '//providers/ietfte:onos-providers-ietfte-oar',
 ]
 
@@ -159,7 +169,6 @@ ONOS_APPS = [
     '//apps/mlb:onos-apps-mlb-oar',
     '//apps/openstacknetworking:onos-apps-openstacknetworking-oar',
     '//apps/mobility:onos-apps-mobility-oar',
-    '//apps/optical:onos-apps-optical-oar',
     '//apps/newoptical:onos-apps-newoptical-oar',
     '//apps/optical-model:onos-apps-optical-model-oar',
     '//apps/pathpainter:onos-apps-pathpainter-oar',

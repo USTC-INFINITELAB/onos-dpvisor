@@ -25,6 +25,7 @@ export KARAF_LOG=$KARAF_ROOT/data/log/karaf.log
 # Setup a path
 export PATH="$PATH:$ONOS_ROOT/tools/dev/bin"
 export PATH="$PATH:$ONOS_ROOT/tools/test/bin:$ONOS_ROOT/tools/test/scenarios/bin"
+export PATH="$ONOS_ROOT/tools/package/runtime/bin:$PATH"
 export PATH="$PATH:$ONOS_ROOT/tools/build"
 export PATH="$PATH:$MAVEN/bin:$KARAF_ROOT/bin"
 
@@ -38,6 +39,10 @@ export ONOS_WEB_PASS=rocks
 # Setup default location of test scenarios
 export ONOS_SCENARIOS=$ONOS_ROOT/tools/test/scenarios
 
+# Setup path to Mininet custom scripts
+export ONOS_MN_PY=$ONOS_ROOT/tools/dev/mininet/onos.py
+export BMV2_MN_PY=$ONOS_ROOT/tools/dev/mininet/bmv2.py
+
 # Convenience utility to warp to various ONOS source projects
 # e.g. 'o api', 'o dev', 'o'
 function o {
@@ -50,7 +55,7 @@ function o {
 
 # Short-hand for ONOS build, package and test.
 alias ob='onos-build'
-alias obf='(cd $ONOS_ROOT && buck build onos)'
+alias obf='(cd $ONOS_ROOT && onos-buck build onos)'
 alias obd='onos-build-docs'
 alias op='onos-package'
 alias ot='onos-test'
@@ -59,7 +64,7 @@ alias deprecatedAlias='echo "This alias has been deprecated."'
 alias obi=deprecatedAlias
 alias obs=deprecatedAlias
 
-alias ok='NO_BUCKD=1 buck run onos-local --'
+alias ok='NO_BUCKD=1 onos-buck run onos-local --'
 alias oh='onos localhost halt'
 
 alias ol='onos-log'

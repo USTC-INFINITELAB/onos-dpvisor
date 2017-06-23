@@ -16,9 +16,6 @@
 
 package org.onosproject.provider.of.group.impl;
 
-import org.jboss.netty.util.HashedWheelTimer;
-import org.jboss.netty.util.Timeout;
-import org.jboss.netty.util.TimerTask;
 import org.onlab.util.Timer;
 import org.onosproject.openflow.controller.OpenFlowSwitch;
 import org.onosproject.openflow.controller.RoleState;
@@ -26,6 +23,9 @@ import org.projectfloodlight.openflow.protocol.OFGroupDescStatsRequest;
 import org.projectfloodlight.openflow.protocol.OFGroupStatsRequest;
 import org.projectfloodlight.openflow.types.OFGroup;
 import org.slf4j.Logger;
+
+import io.netty.util.Timeout;
+import io.netty.util.TimerTask;
 
 import java.util.concurrent.TimeUnit;
 
@@ -36,7 +36,6 @@ import static org.slf4j.LoggerFactory.getLogger;
  */
 public class GroupStatsCollector implements TimerTask {
 
-    private final HashedWheelTimer timer = Timer.getTimer();
     private final OpenFlowSwitch sw;
     private final Logger log = getLogger(getClass());
     private final int refreshInterval;
@@ -60,17 +59,17 @@ public class GroupStatsCollector implements TimerTask {
     public void run(Timeout timeout) throws Exception {
         log.trace("Collecting stats for {}", sw.getStringId());
 
-        sendGroupStatistic();
+        sendGroupStatisticRequest();
 
         if (!this.stopTimer) {
             log.trace("Scheduling stats collection in {} seconds for {}",
                     this.refreshInterval, this.sw.getStringId());
-            timeout.getTimer().newTimeout(this, refreshInterval,
+            timeout.timer().newTimeout(this, refreshInterval,
                     TimeUnit.SECONDS);
         }
     }
 
-    private void sendGroupStatistic() {
+    private void sendGroupStatisticRequest() {
         if (log.isTraceEnabled()) {
             log.trace("sendGroupStatistics {}:{}", sw.getStringId(), sw.getRole());
         }
@@ -80,14 +79,14 @@ public class GroupStatsCollector implements TimerTask {
         if (!sw.isConnected()) {
             return;
         }
-        Long statsXid = OpenFlowGroupProvider.getXidAndAdd(2);
+        long statsXid = OpenFlowGroupProvider.getXidAndAdd(2);
         OFGroupStatsRequest statsRequest = sw.factory().buildGroupStatsRequest()
                 .setGroup(OFGroup.ALL)
                 .setXid(statsXid)
                 .build();
         sw.sendMsg(statsRequest);
 
-        Long descXid = statsXid + 1;
+        long descXid = statsXid + 1;
         OFGroupDescStatsRequest descStatsRequest =
                 sw.factory().buildGroupDescStatsRequest()
                         .setXid(descXid)
@@ -100,7 +99,7 @@ public class GroupStatsCollector implements TimerTask {
      */
     public void start() {
         log.info("Starting Group Stats collection thread for {}", sw.getStringId());
-        timeout = timer.newTimeout(this, 1, TimeUnit.SECONDS);
+        timeout = Timer.newTimeout(this, 1, TimeUnit.SECONDS);
     }
 
     /**

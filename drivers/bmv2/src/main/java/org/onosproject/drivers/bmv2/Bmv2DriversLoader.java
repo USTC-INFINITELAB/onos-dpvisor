@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-present Open Networking Laboratory
+ * Copyright 2017-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,14 +20,12 @@ import org.apache.felix.scr.annotations.Component;
 import org.onosproject.net.driver.AbstractDriverLoader;
 
 /**
- * Loader for BMv2 drivers from xml file.
+ * Loader for P4Runtime device drivers.
  */
 @Component(immediate = true)
 public class Bmv2DriversLoader extends AbstractDriverLoader {
 
-    private static final String DRIVERS_XML = "/bmv2-drivers.xml";
-
     public Bmv2DriversLoader() {
-        super(DRIVERS_XML);
+        super("/bmv2-drivers.xml");
     }
 }

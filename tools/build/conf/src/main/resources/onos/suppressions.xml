@@ -39,15 +39,12 @@
     <suppress files="org.onlab.packet.RADIUSAttribute" checks="RegexpHeader" />
 
     <!-- Suppressions for unit testing code -->
-    <suppress checks="Javadoc.*"
+    <suppress checks="Javadoc(Package|Method)"
               files=".*/src/test/.*.java"
             />
 
     <suppress checks="Javadoc.*"
               files=".*/thirdparty/.*.java"/>
-
-    <suppress checks="Javadoc.*"
-              files=".*/protocols/bmv2/.*.java"/>
 
     <suppress checks="Javadoc.*"
               files=".*/kafkaintegration/.*.java"/>

@@ -50,6 +50,8 @@ import org.onosproject.ui.UiExtension;
 import org.onosproject.ui.UiExtensionService;
 import org.onosproject.ui.UiMessageHandlerFactory;
 import org.onosproject.ui.UiPreferencesService;
+import org.onosproject.ui.UiSessionToken;
+import org.onosproject.ui.UiTokenService;
 import org.onosproject.ui.UiTopo2OverlayFactory;
 import org.onosproject.ui.UiTopoMap;
 import org.onosproject.ui.UiTopoMapFactory;
@@ -59,11 +61,15 @@ import org.onosproject.ui.UiViewHidden;
 import org.onosproject.ui.impl.topo.Topo2TrafficMessageHandler;
 import org.onosproject.ui.impl.topo.Topo2ViewMessageHandler;
 import org.onosproject.ui.impl.topo.Traffic2Overlay;
+import org.onosproject.ui.lion.LionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.math.BigInteger;
+import java.security.SecureRandom;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -76,6 +82,7 @@ import static org.onosproject.security.AppPermission.Type.UI_READ;
 import static org.onosproject.security.AppPermission.Type.UI_WRITE;
 import static org.onosproject.ui.UiView.Category.NETWORK;
 import static org.onosproject.ui.UiView.Category.PLATFORM;
+import static org.onosproject.ui.impl.lion.BundleStitcher.generateBundles;
 
 /**
  * Manages the user interface extensions.
@@ -83,11 +90,13 @@ import static org.onosproject.ui.UiView.Category.PLATFORM;
 @Component(immediate = true)
 @Service
 public class UiExtensionManager
-        implements UiExtensionService, UiPreferencesService, SpriteService {
+        implements UiExtensionService, UiPreferencesService, SpriteService,
+        UiTokenService {
 
     private static final ClassLoader CL = UiExtensionManager.class.getClassLoader();
 
     private static final String ONOS_USER_PREFERENCES = "onos-ui-user-preferences";
+    private static final String ONOS_SESSION_TOKENS = "onos-ui-session-tokens";
     private static final String CORE = "core";
     private static final String GUI_ADDED = "guiAdded";
     private static final String GUI_REMOVED = "guiRemoved";
@@ -97,7 +106,19 @@ public class UiExtensionManager
     private static final int IDX_USER = 0;
     private static final int IDX_KEY = 1;
 
+    private static final String LION_BASE = "/org/onosproject/ui/lion";
+
+    private static final String[] LION_TAGS = {
+            "core.view.Cluster",
+
+            // TODO: fill this out, once we have written the other config files
+    };
+
+
     private final Logger log = LoggerFactory.getLogger(getClass());
+
+    // First thing to do is to set the locale (before creating core extension).
+    private final Locale runtimeLocale = LionUtils.setupRuntimeLocale();
 
     // List of all extensions
     private final List<UiExtension> extensions = Lists.newArrayList();
@@ -119,6 +140,12 @@ public class UiExtensionManager
     private Map<String, ObjectNode> prefs;
     private final MapEventListener<String, ObjectNode> prefsListener =
             new InternalPrefsListener();
+
+    // Session tokens
+    private ConsistentMap<UiSessionToken, String> tokensConsistentMap;
+    private Map<UiSessionToken, String> tokens;
+    private final SessionTokenGenerator tokenGen =
+            new SessionTokenGenerator();
 
     private final ObjectMapper mapper = new ObjectMapper();
 
@@ -201,6 +228,7 @@ public class UiExtensionManager
                 );
 
         return new UiExtension.Builder(CL, coreViews)
+                .lionBundles(generateBundles(LION_BASE, LION_TAGS))
                 .messageHandlerFactory(messageHandlerFactory)
                 .topoOverlayFactory(topoOverlayFactory)
                 .topo2OverlayFactory(topo2OverlayFactory)
@@ -209,6 +237,7 @@ public class UiExtensionManager
                 .build();
     }
 
+
     @Activate
     public void activate() {
         Serializer serializer = Serializer.using(KryoNamespaces.API,
@@ -216,7 +245,7 @@ public class UiExtensionManager
                      JsonNodeFactory.class, LinkedHashMap.class,
                      TextNode.class, BooleanNode.class,
                      LongNode.class, DoubleNode.class, ShortNode.class,
-                     IntNode.class, NullNode.class);
+                     IntNode.class, NullNode.class, UiSessionToken.class);
 
         prefsConsistentMap = storageService.<String, ObjectNode>consistentMapBuilder()
                 .withName(ONOS_USER_PREFERENCES)
@@ -225,7 +254,16 @@ public class UiExtensionManager
                 .build();
         prefsConsistentMap.addListener(prefsListener);
         prefs = prefsConsistentMap.asJavaMap();
+
+        tokensConsistentMap = storageService.<UiSessionToken, String>consistentMapBuilder()
+                .withName(ONOS_SESSION_TOKENS)
+                .withSerializer(serializer)
+                .withRelaxedReadConsistency()
+                .build();
+        tokens = tokensConsistentMap.asJavaMap();
+
         register(core);
+
         log.info("Started");
     }
 
@@ -254,7 +292,8 @@ public class UiExtensionManager
     public synchronized void unregister(UiExtension extension) {
         checkPermission(UI_WRITE);
         extensions.remove(extension);
-        extension.views().stream().map(UiView::id).collect(toSet()).forEach(views::remove);
+        extension.views().stream()
+                .map(UiView::id).collect(toSet()).forEach(views::remove);
         UiWebSocketServlet.sendToAll(GUI_REMOVED, null);
     }
 
@@ -325,6 +364,55 @@ public class UiExtensionManager
         return key.split(SLASH)[IDX_KEY];
     }
 
+
+    // =====================================================================
+    // UiTokenService
+
+    @Override
+    public UiSessionToken issueToken(String username) {
+        UiSessionToken token = new UiSessionToken(tokenGen.nextSessionId());
+        tokens.put(token, username);
+        log.debug("UiSessionToken issued: {}", token);
+        return token;
+    }
+
+    @Override
+    public void revokeToken(UiSessionToken token) {
+        if (token != null) {
+            tokens.remove(token);
+            log.debug("UiSessionToken revoked: {}", token);
+        }
+    }
+
+    @Override
+    public boolean isTokenValid(UiSessionToken token) {
+        return token != null && tokens.containsKey(token);
+    }
+
+    private final class SessionTokenGenerator {
+        private final SecureRandom random = new SecureRandom();
+
+        /*
+            This works by choosing 130 bits from a cryptographically secure
+            random bit generator, and encoding them in base-32.
+
+            128 bits is considered to be cryptographically strong, but each
+            digit in a base 32 number can encode 5 bits, so 128 is rounded up
+            to the next multiple of 5.
+
+            This encoding is compact and efficient, with 5 random bits per
+            character. Compare this to a random UUID, which only has 3.4 bits
+            per character in standard layout, and only 122 random bits in total.
+
+            Note that SecureRandom objects are expensive to initialize, so
+            we'll want to keep it around and re-use it.
+         */
+
+        private String nextSessionId() {
+            return new BigInteger(130, random).toString(32);
+        }
+    }
+
     // Auxiliary listener to preference map events.
     private class InternalPrefsListener
             implements MapEventListener<String, ObjectNode> {
@@ -340,7 +428,7 @@ public class UiExtensionManager
 
         private ObjectNode jsonPrefs() {
             ObjectNode json = mapper.createObjectNode();
-            prefs.entrySet().forEach(e -> json.set(keyName(e.getKey()), e.getValue()));
+            prefs.forEach((key, value) -> json.set(keyName(key), value));
             return json;
         }
     }

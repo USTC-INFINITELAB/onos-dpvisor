@@ -24,8 +24,8 @@ import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.apache.felix.scr.annotations.Service;
 import org.onlab.packet.IpAddress;
 import org.onlab.packet.IpPrefix;
+import org.onosproject.cluster.ClusterService;
 import org.onosproject.incubator.net.routing.InternalRouteEvent;
-import org.onosproject.incubator.net.routing.NextHop;
 import org.onosproject.incubator.net.routing.ResolvedRoute;
 import org.onosproject.incubator.net.routing.Route;
 import org.onosproject.incubator.net.routing.RouteAdminService;
@@ -41,12 +41,12 @@ import org.onosproject.net.Host;
 import org.onosproject.net.host.HostEvent;
 import org.onosproject.net.host.HostListener;
 import org.onosproject.net.host.HostService;
+import org.onosproject.store.service.StorageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.concurrent.GuardedBy;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
@@ -57,7 +57,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
@@ -81,7 +80,15 @@ public class RouteManager implements RouteService, RouteAdminService {
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected HostService hostService;
 
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected ClusterService clusterService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected StorageService storageService;
+
     private ResolvedRouteStore resolvedRouteStore;
+
+    private RouteMonitor routeMonitor;
 
     @GuardedBy(value = "this")
     private Map<RouteListener, ListenerQueue> listeners = new HashMap<>();
@@ -90,6 +97,7 @@ public class RouteManager implements RouteService, RouteAdminService {
 
     @Activate
     protected void activate() {
+        routeMonitor = new RouteMonitor(this, clusterService, storageService);
         threadFactory = groupedThreads("onos/route", "listener-%d", log);
 
         resolvedRouteStore = new DefaultResolvedRouteStore();
@@ -104,6 +112,7 @@ public class RouteManager implements RouteService, RouteAdminService {
 
     @Deactivate
     protected void deactivate() {
+        routeMonitor.shutdown();
         listeners.values().forEach(ListenerQueue::stop);
 
         routeStore.unsetDelegate(delegate);
@@ -163,14 +172,6 @@ public class RouteManager implements RouteService, RouteAdminService {
         }
     }
 
-    @Override
-    public Map<RouteTableId, Collection<Route>> getAllRoutes() {
-        return routeStore.getRouteTables().stream()
-                .collect(Collectors.toMap(Function.identity(),
-                        table -> (table == null) ?
-                                 Collections.emptySet() : reformatRoutes(routeStore.getRoutes(table))));
-    }
-
     private Collection<Route> reformatRoutes(Collection<RouteSet> routeSets) {
         return routeSets.stream().flatMap(r -> r.routes().stream()).collect(Collectors.toList());
     }
@@ -202,27 +203,8 @@ public class RouteManager implements RouteService, RouteAdminService {
     }
 
     @Override
-    public Route longestPrefixMatch(IpAddress ip) {
-        return longestPrefixLookup(ip)
-                .map(ResolvedRoute::route)
-                .orElse(null);
-    }
-
-    @Override
     public Optional<ResolvedRoute> longestPrefixLookup(IpAddress ip) {
         return resolvedRouteStore.longestPrefixMatch(ip);
-    }
-
-    @Override
-    public Collection<Route> getRoutesForNextHop(IpAddress nextHop) {
-        return routeStore.getRoutesForNextHop(nextHop);
-    }
-
-    @Override
-    public Set<NextHop> getNextHops() {
-        return routeStore.getNextHops().entrySet().stream()
-                .map(entry -> new NextHop(entry.getKey(), entry.getValue()))
-                .collect(Collectors.toSet());
     }
 
     @Override
@@ -243,6 +225,13 @@ public class RouteManager implements RouteService, RouteAdminService {
                 routeStore.removeRoute(route);
             });
         }
+    }
+
+    @Override
+    public Route longestPrefixMatch(IpAddress ip) {
+        return longestPrefixLookup(ip)
+                .map(ResolvedRoute::route)
+                .orElse(null);
     }
 
     private ResolvedRoute resolve(Route route) {

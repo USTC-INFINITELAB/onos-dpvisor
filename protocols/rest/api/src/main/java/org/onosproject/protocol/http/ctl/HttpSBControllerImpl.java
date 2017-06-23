@@ -16,30 +16,7 @@
 
 package org.onosproject.protocol.http.ctl;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.security.KeyManagementException;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
-import java.util.Base64;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
-import javax.ws.rs.client.Client;
-import javax.ws.rs.client.ClientBuilder;
-import javax.ws.rs.client.Entity;
-import javax.ws.rs.client.WebTarget;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.Status;
-
+import com.google.common.collect.ImmutableMap;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.client.methods.HttpPatch;
 import org.apache.http.conn.ssl.AllowAllHostnameVerifier;
@@ -55,7 +32,28 @@ import org.onosproject.protocol.rest.RestSBDevice;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.ImmutableMap;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
+import javax.ws.rs.client.Client;
+import javax.ws.rs.client.ClientBuilder;
+import javax.ws.rs.client.Entity;
+import javax.ws.rs.client.WebTarget;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.Status;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.security.KeyManagementException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+import java.util.Base64;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * The implementation of HttpSBController.
@@ -160,13 +158,13 @@ public class HttpSBControllerImpl implements HttpSBController {
         Response response = null;
         if (payload != null) {
             try {
-                response = wt.request(mediaType.getType())
-                        .post(Entity.entity(IOUtils.toString(payload, StandardCharsets.UTF_8), mediaType.getType()));
+                response = wt.request(mediaType)
+                        .post(Entity.entity(IOUtils.toString(payload, StandardCharsets.UTF_8), mediaType));
             } catch (IOException e) {
                 log.error("Cannot do POST {} request on device {} because can't read payload", request, device);
             }
         } else {
-            response = wt.request(mediaType.getType()).post(Entity.entity(null, mediaType.getType()));
+            response = wt.request(mediaType).post(Entity.entity(null, mediaType));
         }
         return response;
     }
@@ -184,13 +182,13 @@ public class HttpSBControllerImpl implements HttpSBController {
         Response response = null;
         if (payload != null) {
             try {
-                response = wt.request(mediaType.getType()).put(Entity.entity(IOUtils.
-                        toString(payload, StandardCharsets.UTF_8), mediaType.getType()));
+                response = wt.request(mediaType).put(Entity.entity(IOUtils.
+                        toString(payload, StandardCharsets.UTF_8), mediaType));
             } catch (IOException e) {
                 log.error("Cannot do PUT {} request on device {} because can't read payload", request, device);
             }
         } else {
-            response = wt.request(mediaType.getType()).put(Entity.entity(null, mediaType.getType()));
+            response = wt.request(mediaType).put(Entity.entity(null, mediaType));
         }
 
         if (response == null) {
@@ -208,7 +206,7 @@ public class HttpSBControllerImpl implements HttpSBController {
     public InputStream get(DeviceId device, String request, MediaType mediaType) {
         WebTarget wt = getWebTarget(device, request);
 
-        Response s = wt.request(mediaType.getType()).get();
+        Response s = wt.request(mediaType).get();
 
         if (checkReply(s)) {
             return new ByteArrayInputStream(s.readEntity((String.class)).getBytes(StandardCharsets.UTF_8));
@@ -235,7 +233,7 @@ public class HttpSBControllerImpl implements HttpSBController {
             }
             if (payload != null) {
                 StringEntity input = new StringEntity(IOUtils.toString(payload, StandardCharsets.UTF_8));
-                input.setContentType(mediaType.getType());
+                input.setContentType(mediaType.toString());
                 httprequest.setEntity(input);
             }
             CloseableHttpClient httpClient;
@@ -264,7 +262,7 @@ public class HttpSBControllerImpl implements HttpSBController {
         // FIXME: do we need to delete an entry by enclosing data in DELETE
         // request?
         // wouldn't it be nice to use PUT to implement the similar concept?
-        Response response = wt.request(mediaType.getType()).delete();
+        Response response = wt.request(mediaType).delete();
 
         return response.getStatus();
     }
@@ -275,6 +273,8 @@ public class HttpSBControllerImpl implements HttpSBController {
             return MediaType.APPLICATION_XML_TYPE;
         case JSON:
             return MediaType.APPLICATION_JSON_TYPE;
+        case MediaType.WILDCARD:
+            return MediaType.WILDCARD_TYPE;
         default:
             throw new IllegalArgumentException("Unsupported media type " + type);
 
@@ -300,12 +300,17 @@ public class HttpSBControllerImpl implements HttpSBController {
                                       .build()).build();
     }
 
-    protected String getUrlString(DeviceId device, String request) {
-        if (deviceMap.get(device).url() != null) {
-            return deviceMap.get(device).protocol() + COLON + DOUBLESLASH + deviceMap.get(device).url() + request;
+    protected String getUrlString(DeviceId deviceId, String request) {
+        RestSBDevice restSBDevice = deviceMap.get(deviceId);
+        if (restSBDevice == null) {
+            log.warn("restSbDevice cannot be NULL!");
+            return "";
+        }
+        if (restSBDevice.url() != null) {
+            return restSBDevice.protocol() + COLON + DOUBLESLASH + restSBDevice.url() + request;
         } else {
-            return deviceMap.get(device).protocol() + COLON + DOUBLESLASH + deviceMap.get(device).ip().toString()
-                    + COLON + deviceMap.get(device).port() + request;
+            return restSBDevice.protocol() + COLON + DOUBLESLASH + restSBDevice.ip().toString()
+                    + COLON + restSBDevice.port() + request;
         }
     }
 

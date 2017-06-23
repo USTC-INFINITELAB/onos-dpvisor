@@ -108,6 +108,12 @@
         </dependency>
 
         <dependency>
+            <groupId>org.onosproject</groupId>
+            <artifactId>onos-core-serializers</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
             <groupId>com.github.ustc-infinitelab</groupId>
             <artifactId>floodlightpof</artifactId>
         </dependency>

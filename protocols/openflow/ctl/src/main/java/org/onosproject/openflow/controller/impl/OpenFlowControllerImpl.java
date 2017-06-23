@@ -89,6 +89,9 @@ import static org.onlab.util.Tools.groupedThreads;
 import static org.onosproject.net.Device.Type.CONTROLLER;
 import static org.onosproject.net.device.DeviceEvent.Type.DEVICE_REMOVED;
 import static org.onosproject.openflow.controller.Dpid.dpid;
+import org.projectfloodlight.openflow.protocol.OFQueueStatsEntry;
+import org.projectfloodlight.openflow.protocol.OFQueueStatsReply;
+
 
 @Component(immediate = true)
 @Service
@@ -169,6 +172,9 @@ public class OpenFlowControllerImpl implements OpenFlowController {
             ArrayListMultimap.create();
 
     protected Multimap<Dpid, OFPortStatsEntry> fullPortStats =
+            ArrayListMultimap.create();
+
+    protected Multimap<Dpid, OFQueueStatsEntry> fullQueueStats =
             ArrayListMultimap.create();
 
     private final Controller ctrl = new Controller();
@@ -289,28 +295,32 @@ public class OpenFlowControllerImpl implements OpenFlowController {
         write(dpid, msg);
 
         ConcurrentMap<Long, CompletableFuture<OFMessage>> xids =
-                responses.computeIfAbsent(dpid, k -> new ConcurrentHashMap());
+                responses.computeIfAbsent(dpid, k -> new ConcurrentHashMap<>());
 
-        CompletableFuture<OFMessage> future = new CompletableFuture();
+        CompletableFuture<OFMessage> future = new CompletableFuture<>();
         xids.put(msg.getXid(), future);
 
         return future;
     }
 
+    // CHECKSTYLE IGNORE MethodLength FOR NEXT 300 LINES
     @Override
     public void processPacket(Dpid dpid, OFMessage msg) {
         Collection<OFFlowStatsEntry> flowStats;
         Collection<OFTableStatsEntry> tableStats;
         Collection<OFGroupStatsEntry> groupStats;
         Collection<OFGroupDescStatsEntry> groupDescStats;
-        Collection<OFPortStatsEntry> portStats;
+        Collection<OFQueueStatsEntry> queueStatsEntries;
 
         OpenFlowSwitch sw = this.getSwitch(dpid);
 
         // Check if someone is waiting for this message
         ConcurrentMap<Long, CompletableFuture<OFMessage>> xids = responses.get(dpid);
-        if (xids != null && xids.containsKey(msg.getXid())) {
-            xids.remove(msg.getXid()).complete(msg);
+        if (xids != null) {
+            CompletableFuture<OFMessage> future = xids.remove(msg.getXid());
+            if (future != null) {
+                future.complete(msg);
+            }
         }
 
         switch (msg.getType()) {
@@ -326,11 +336,11 @@ public class OpenFlowControllerImpl implements OpenFlowController {
             break;
         case PACKET_IN:
             if (sw == null) {
-                log.error("Switch {} is not found", dpid);
+                log.error("Ignoring PACKET_IN, switch {} is not found", dpid);
                 break;
             }
             OpenFlowPacketContext pktCtx = DefaultOpenFlowPacketContext
-            .packetContextFromPacketIn(sw, (OFPacketIn) msg);
+                .packetContextFromPacketIn(sw, (OFPacketIn) msg);
             for (PacketListener p : ofPacketListener.values()) {
                 p.handlePacket(pktCtx);
             }
@@ -348,6 +358,16 @@ public class OpenFlowControllerImpl implements OpenFlowController {
         case STATS_REPLY:
             OFStatsReply reply = (OFStatsReply) msg;
             switch (reply.getStatsType()) {
+                case QUEUE:
+                    queueStatsEntries = publishQueueStats(dpid, (OFQueueStatsReply) reply);
+                    if (queueStatsEntries != null) {
+                        OFQueueStatsReply.Builder rep =
+                                OFFactories.getFactory(msg.getVersion()).buildQueueStatsReply();
+                        rep.setEntries(Lists.newLinkedList(queueStatsEntries));
+                        rep.setXid(reply.getXid());
+                        executorMsgs.execute(new OFMessageHandler(dpid, rep.build()));
+                    }
+                    break;
                 case PORT_DESC:
                     for (OpenFlowSwitchListener l : ofSwitchListener) {
                         l.switchChanged(dpid);
@@ -540,6 +560,14 @@ public class OpenFlowControllerImpl implements OpenFlowController {
         fullPortStats.putAll(dpid, reply.getEntries());
         if (!reply.getFlags().contains(OFStatsReplyFlags.REPLY_MORE)) {
             return fullPortStats.removeAll(dpid);
+        }
+        return null;
+    }
+
+    private synchronized Collection<OFQueueStatsEntry> publishQueueStats(Dpid dpid, OFQueueStatsReply reply) {
+        fullQueueStats.putAll(dpid, reply.getEntries());
+        if (!reply.getFlags().contains(OFStatsReplyFlags.REPLY_MORE)) {
+            return fullQueueStats.removeAll(dpid);
         }
         return null;
     }
