@@ -62,11 +62,11 @@ public class OFMessageDecoder extends FrameDecoder {
         //OFMessage message = reader.readFrom(buffer);
 
         List<OFMessage> message = factory.parseOFMessage(buffer);
-        if (message != null) {
+        /*if (message != null) {
             for (OFMessage ofm : message) {
                 log.debug("G [" + ofm.getType() + "] get ofm: 0x{}, toString: {}", ofm.toBytesString(), ofm.toString());
             }
-        }
+        }*/
         return message;
     }
 
