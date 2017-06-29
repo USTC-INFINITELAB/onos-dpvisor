@@ -56,6 +56,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.RejectedExecutionException;
@@ -895,9 +896,7 @@ class OFChannelHandler extends IdleStateAwareChannelHandler {
             wenjian*/
             OFEchoReply reply = (OFEchoReply) h.factory.getOFMessage(OFType.ECHO_REPLY);
             reply.setXid(m.getXid());
-            List<OFMessage> rlist = new ArrayList<OFMessage>(1);
-            rlist.add(reply);
-            h.channel.write(rlist);
+            h.channel.write(Collections.singletonList(reply));
         }
 
         void processOFEchoReply(OFChannelHandler h, OFEchoReply m)
@@ -1079,9 +1078,8 @@ class OFChannelHandler extends IdleStateAwareChannelHandler {
     @Override
     public void channelIdle(ChannelHandlerContext ctx, IdleStateEvent e)
             throws Exception {
-        List<OFMessage> msglist = new ArrayList<OFMessage>(1);
-        msglist.add(factory.getOFMessage(OFType.ECHO_REQUEST));
-        e.getChannel().write(msglist);
+        OFMessage m = factory.getOFMessage(OFType.ECHO_REQUEST);
+        e.getChannel().write(Collections.singletonList(m));
     }
 
     @Override
