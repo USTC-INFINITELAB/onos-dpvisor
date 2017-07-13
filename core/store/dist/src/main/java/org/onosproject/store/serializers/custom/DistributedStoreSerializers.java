@@ -36,10 +36,12 @@ import org.onosproject.net.flow.instructions.PofInstruction;
 import org.onosproject.net.table.DefaultFlowTable;
 import org.onosproject.net.table.FlowTableBatchEntry;
 import org.onosproject.net.table.FlowTableBatchOperation;
+import org.onosproject.net.table.FlowTableEntry;
 import org.onosproject.net.table.FlowTableId;
 
 import org.onosproject.store.impl.MastershipBasedTimestamp;
 import org.onosproject.store.impl.Timestamped;
+import org.onosproject.store.primitives.ConsistentMapBackedJavaMap;
 import org.onosproject.store.service.WallClockTimestamp;
 import org.onosproject.store.serializers.KryoNamespaces;
 import org.onlab.util.KryoNamespace;
@@ -57,7 +59,7 @@ public final class DistributedStoreSerializers {
             .register(Timestamped.class)
             .register(new MastershipBasedTimestampSerializer(), MastershipBasedTimestamp.class)
             .register(WallClockTimestamp.class)
-
+            .register(DefaultFlowTableEntry.class)
             .register(FlowTableBatchEntry.class)
             .register(FlowTableBatchEntry.FlowTableOperation.class)
             .register(FlowTableBatchOperation.class)
@@ -71,6 +73,8 @@ public final class DistributedStoreSerializers {
             .register(DeviceOFTableType.class)
             .register(DeviceTableId.class)
             .register(DefaultFlowTableEntry.class)
+            .register(FlowTableEntry.FlowTableState.class)
+            .register(ConsistentMapBackedJavaMap.class)
             .build();
 
     // avoid instantiation

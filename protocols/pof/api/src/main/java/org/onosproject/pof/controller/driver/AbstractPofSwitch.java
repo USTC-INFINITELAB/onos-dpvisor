@@ -16,14 +16,15 @@
 
 package org.onosproject.pof.controller.driver;
 
+import com.google.common.collect.Lists;
 import org.jboss.netty.channel.Channel;
 import org.onlab.packet.IpAddress;
 import org.onosproject.floodlightpof.protocol.OFError;
-import org.onosproject.floodlightpof.protocol.OFExperimenter;
 import org.onosproject.floodlightpof.protocol.OFFeaturesReply;
 import org.onosproject.floodlightpof.protocol.OFMessage;
 import org.onosproject.floodlightpof.protocol.OFPhysicalPort;
 import org.onosproject.floodlightpof.protocol.OFPortStatus;
+import org.onosproject.floodlightpof.protocol.OFRoleReply;
 import org.onosproject.floodlightpof.protocol.OFRoleRequest;
 import org.onosproject.floodlightpof.protocol.OFType;
 import org.onosproject.floodlightpof.protocol.factory.BasicFactory;
@@ -39,6 +40,7 @@ import org.onosproject.pof.controller.RoleState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.Collections;
@@ -77,7 +79,7 @@ public abstract class AbstractPofSwitch extends AbstractHandlerBehaviour
 
     protected boolean tableFull;
 
-    //hdy
+
     protected Map<OFTableType, OFTableResource> ofTableTypeOFTableResourceMap
             = new ConcurrentHashMap<OFTableType, OFTableResource>();
 
@@ -87,9 +89,8 @@ public abstract class AbstractPofSwitch extends AbstractHandlerBehaviour
     protected volatile RoleState role;
 
     protected OFFeaturesReply features;
-    //protected OFDescStatsReply desc;//wenjian
+
     protected OFDescriptionStatistics desc;
-    //wenjian
 
     protected Set<PofEventListener> pofOutgoingMsgListener = new CopyOnWriteArraySet<>();
 
@@ -197,8 +198,6 @@ public abstract class AbstractPofSwitch extends AbstractHandlerBehaviour
 
     @Override
     public final void sendRoleRequest(OFMessage msg) {
-        //if (msg instanceof OFRoleRequest ||
-                //wenjian msg instanceof OFNiciraControllerRoleRequest) {
         if (msg instanceof OFRoleRequest) {
             sendMsgsOnChannel(Collections.singletonList(msg));
             return;
@@ -290,7 +289,10 @@ public abstract class AbstractPofSwitch extends AbstractHandlerBehaviour
     @Override
     public final void handleMessage(OFMessage m) {
         //modify by hhb
-        if (this.role == RoleState.MASTER || m instanceof OFPortStatus) {
+        if (this.role == RoleState.MASTER
+                || m instanceof OFPortStatus
+                || m instanceof OFFlowTableResource) {
+            log.info("@niubin handleMessage:{}",m);
             this.agent.processMessage(dpid, m);
         } else {
             log.trace("Dropping received message {}, was not MASTER", m);
@@ -335,8 +337,8 @@ public abstract class AbstractPofSwitch extends AbstractHandlerBehaviour
             if (messages != null) {
                 // Cannot use sendMsg here. It will only append to pending list.
                 sendMsgsOnChannel(messages);
-                log.debug("Sending {} pending messages to switch {}",
-                          messages.size(), dpid);
+                log.info("Sending {} pending messages to switch {}",
+                         messages.size(), dpid);
                 messagesPendingMastership.set(null);
             }
             // perform role transition after clearing messages queue
@@ -391,7 +393,7 @@ public abstract class AbstractPofSwitch extends AbstractHandlerBehaviour
     @Override
     public void setPorts(List<OFPhysicalPort> ports) {
         for (OFPhysicalPort port : ports) {
-        this.ports.put(port.getSlotPortId(), port); }
+            this.ports.put(port.getSlotPortId(), port); }
     }
     //wenjian
 
@@ -425,38 +427,33 @@ public abstract class AbstractPofSwitch extends AbstractHandlerBehaviour
 
     @Override
     public void setRole(RoleState role) {
-        if (this.role == RoleState.MASTER) {
-            return;
-        } else if (role == RoleState.MASTER) {
-            this.transitionToMasterSwitch();
+        try {
+            if (role == RoleState.SLAVE || role == RoleState.EQUAL) {
+                // perform role transition to SLAVE/EQUAL before sending role request
+                this.role = role;
+            }
+            if (this.roleMan.sendRoleRequest(role, RoleRecvStatus.MATCHED_SET_ROLE)) {
+                log.debug("Sending role {} to switch {}", role, getStringId());
+                if (role == RoleState.MASTER) {
+                    synchronized (messagesPendingMastership) {
+                        if (messagesPendingMastership.get() == null) {
+                            log.debug("Initializing new message queue for switch {}", dpid);
+                            /*
+                               The presence of messagesPendingMastership indicates that
+                               a switch is currently transitioning to MASTER, but
+                               is still awaiting role reply from switch.
+                            */
+                            messagesPendingMastership.set(Lists.newArrayList());
+                        }
+                    }
+                }
+            } else if (role == RoleState.MASTER) {
+                // role request not support; transition switch to MASTER
+                this.role = role;
+            }
+        } catch (IOException e) {
+            log.error("Unable to write to switch {}.", this.dpid);
         }
-//        try {
-//            if (role == RoleState.SLAVE || role == RoleState.EQUAL) {
-//                // perform role transition to SLAVE/EQUAL before sending role request
-//                this.role = role;
-//            }
-//            if (this.roleMan.sendRoleRequest(role, RoleRecvStatus.MATCHED_SET_ROLE)) {
-//                log.debug("Sending role {} to switch {}", role, getStringId());
-//                if (role == RoleState.MASTER) {
-//                    synchronized (messagesPendingMastership) {
-//                        if (messagesPendingMastership.get() == null) {
-//                            log.debug("Initializing new message queue for switch {}", dpid);
-//                            /*
-//                               The presence of messagesPendingMastership indicates that
-//                               a switch is currently transitioning to MASTER, but
-//                               is still awaiting role reply from switch.
-//                            */
-//                            messagesPendingMastership.set(Lists.newArrayList());
-//                        }
-//                    }
-//                }
-//            } else if (role == RoleState.MASTER) {
-//                // role request not support; transition switch to MASTER
-//                this.role = role;
-//            }
-//        } catch (IOException e) {
-//            log.error("Unable to write to switch {}.", this.dpid);
-//        }
     }
 
     @Override
@@ -464,8 +461,8 @@ public abstract class AbstractPofSwitch extends AbstractHandlerBehaviour
         // TODO should messages be sent directly or queue during reassertion?
         if (this.getRole() == RoleState.MASTER) {
             log.warn("Received permission error from switch {} while " +
-                    "being master. Reasserting master role.",
-                    this.getStringId());
+                             "being master. Reasserting master role.",
+                     this.getStringId());
             this.setRole(RoleState.MASTER);
         }
     }
@@ -473,45 +470,25 @@ public abstract class AbstractPofSwitch extends AbstractHandlerBehaviour
     @Override
     public void handleRole(OFMessage m) throws SwitchStateException {
 //        edited by hdy
+
         log.info("+++++before transitionToMasterSwitch");
         this.transitionToMasterSwitch();
-/*        RoleReplyInfo rri = roleMan.extractOFRoleReply((OFRoleReply) m);
+        RoleReplyInfo rri = roleMan.extractOFRoleReply((OFRoleReply) m);
         RoleRecvStatus rrs = roleMan.deliverRoleReply(rri);
         if (rrs == RoleRecvStatus.MATCHED_SET_ROLE) {
             if (rri.getRole() == RoleState.MASTER) {
                 this.transitionToMasterSwitch();
             } else if (rri.getRole() == RoleState.EQUAL ||
-                       rri.getRole() == RoleState.SLAVE) {
+                    rri.getRole() == RoleState.SLAVE) {
                 this.transitionToEqualSwitch();
             }
         }  else {
             log.warn("Failed to set role for {}", this.getStringId());
-        }*/
+        }
     }
 
     @Override
-    public void handleNiciraRole(OFMessage m) throws SwitchStateException {
-        RoleState r = this.roleMan.extractNiciraRoleReply((OFExperimenter) m);
-        if (r == null) {
-            // The message wasn't really a Nicira role reply. We just
-            // dispatch it to the OFMessage listeners in this case.
-            this.handleMessage(m);
-            return;
-        }
-
-        RoleRecvStatus rrs = this.roleMan.deliverRoleReply(
-                new RoleReplyInfo(r, null, m.getXid()));
-        if (rrs == RoleRecvStatus.MATCHED_SET_ROLE) {
-            if (r == RoleState.MASTER) {
-                this.transitionToMasterSwitch();
-            } else if (r == RoleState.EQUAL ||
-                       r == RoleState.SLAVE) {
-                this.transitionToEqualSwitch();
-            }
-        } else {
-            this.disconnectSwitch();
-        }
-    }
+    public void handleNiciraRole(OFMessage m) throws SwitchStateException {}
 
     @Override
     public boolean handleRoleError(OFError error) {

@@ -70,8 +70,10 @@ import org.onosproject.store.flow.ReplicaInfoEventListener;
 import org.onosproject.store.flow.ReplicaInfoService;
 import org.onosproject.store.impl.MastershipBasedTimestamp;
 import org.onosproject.store.serializers.KryoNamespaces;
-import org.onosproject.store.serializers.StoreSerializer;
+//import org.onosproject.store.serializers.KryoSerializer;
+//import org.onosproject.store.serializers.StoreSerializer;
 import org.onosproject.store.serializers.custom.DistributedStoreSerializers;
+import org.onosproject.store.service.ConsistentMap;
 import org.onosproject.store.service.EventuallyConsistentMap;
 import org.onosproject.store.service.EventuallyConsistentMapEvent;
 import org.onosproject.store.service.EventuallyConsistentMapListener;
@@ -84,6 +86,7 @@ import org.slf4j.Logger;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Dictionary;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -118,7 +121,7 @@ public class NewDistributedFlowTableStore
     private final Logger log = getLogger(getClass());
 
     private static final int MESSAGE_HANDLER_THREAD_POOL_SIZE = 8;
-    private static final boolean DEFAULT_BACKUP_ENABLED = true;
+    private static final boolean DEFAULT_BACKUP_ENABLED = false;
     private static final boolean DEFAULT_PERSISTENCE_ENABLED = false;
     private static final int DEFAULT_BACKUP_PERIOD_MILLIS = 2000;
     private static final long FLOW_TABLE_STORE_TIMEOUT_MILLIS = 5000;
@@ -133,7 +136,7 @@ public class NewDistributedFlowTableStore
 
     @Property(name = "backupEnabled", boolValue = DEFAULT_BACKUP_ENABLED,
             label = "Indicates whether backups are enabled or not")
-    private boolean backupEnabled = !DEFAULT_BACKUP_ENABLED;
+    private boolean backupEnabled = DEFAULT_BACKUP_ENABLED;
 
     @Property(name = "backupPeriod", intValue = DEFAULT_BACKUP_PERIOD_MILLIS,
             label = "Delay in ms between successive backup runs")
@@ -143,25 +146,32 @@ public class NewDistributedFlowTableStore
     private boolean persistenceEnabled = DEFAULT_PERSISTENCE_ENABLED;
 
     private InternalFlowTable flowTable = new InternalFlowTable();
-    private static Map<DeviceId, Map<FlowTableId, List<Integer>>>
-            freeFlowEntryIds = Maps.newConcurrentMap();
-    private static Map<DeviceId, Map<FlowTableId, Integer>>
-            flowEntryCount = Maps.newConcurrentMap();
-
-    private static Map<DeviceId, Map<OFTableType, Byte>>
-            flowTableNoBaseMap = Maps.newConcurrentMap();    //<tableType, NumberBase>
-
-    private static Map<DeviceId, Map<OFTableType, Byte>>
-            flowTableNoMap = Maps.newConcurrentMap();        //<tableType, globalTableId>
-
-    private static Map<DeviceId, Map<OFTableType, List<Byte>>>
-            freeFlowTableIDListMap = Maps.newConcurrentMap();
-
     private static Map<DeviceId, Map<FlowTableId, Map<Integer, FlowRule>>>
             flowEntries = Maps.newConcurrentMap();
+    private ConsistentMap<DeviceId,Map<FlowTableId, List<Integer>>>freeFlowEntryIdConsistentMap;
+    private Map<DeviceId,Map<FlowTableId, List<Integer>>>freeFlowEntryIdMap = new HashMap<>();
+    private Map<FlowTableId, List<Integer>>freeFlowEntryIdTmpMap = new HashMap<>();
+    private ConsistentMap<DeviceId,Map<FlowTableId, Integer>>flowEntryCountConsistentMap;
+    private Map<DeviceId,Map<FlowTableId, Integer>>flowEntryCountMap = new HashMap<>();
 
-    private static final Map<DeviceId, Map<FlowTableId, StoredFlowTableEntry>>
-            FLOWTABLES = Maps.newConcurrentMap();
+    private Map<FlowTableId, Integer> flowEntryCountTmpMap = new HashMap<>();
+    private ConsistentMap<DeviceId, Map<OFTableType,Byte>>flowTableNoBaseConsistentMap;
+
+    private Map<DeviceId,Map<OFTableType, Byte>>flowTableNoBaseMap = new HashMap<>();
+    private ConsistentMap<DeviceId, Map<OFTableType, Byte>>flowTableNoConsistentMap;
+
+    private Map<DeviceId, Map<OFTableType, Byte>> flowTableNoMap = new HashMap<>();
+    private ConsistentMap<DeviceId, Map<OFTableType, List<Byte>>> freeFlowTableIdListConsistentMap;
+
+
+    private Map<DeviceId, Map<OFTableType, List<Byte>>> freeFlowTableIdListMap = new HashMap<>();
+
+
+
+    private ConsistentMap<DeviceId, Map<FlowTableId, StoredFlowTableEntry>>flowTablesConsistMap;
+    private Map<DeviceId, Map<FlowTableId, StoredFlowTableEntry>>
+            flowTablesMap = new HashMap<>();
+    private Map<FlowTableId, StoredFlowTableEntry>flowTablesTmpMap = new HashMap<>();
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected ReplicaInfoService replicaInfoManager;
@@ -190,24 +200,34 @@ public class NewDistributedFlowTableStore
 
     private Map<Long, NodeId> pendingResponses = Maps.newConcurrentMap();
     private ExecutorService messageHandlingExecutor;
-
     private ScheduledFuture<?> backupTask;
     private final ScheduledExecutorService backupSenderExecutor =
             Executors.newSingleThreadScheduledExecutor(groupedThreads("onos/table", "backup-sender", log));
 
     private EventuallyConsistentMap<DeviceId, List<TableStatisticsEntry>> deviceTableStats;
+
     private final EventuallyConsistentMapListener<DeviceId, List<TableStatisticsEntry>> tableStatsListener =
             new InternalTableStatsListener();
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected StorageService storageService;
 
+//    protected static final StoreSerializer SERIALIZER = new KryoSerializer() {
+//        @Override
+//        protected void setupKryoPool() {
+//            serializerPool = KryoNamespace.newBuilder()
+//                    .register(DistributedStoreSerializers.STORE_COMMON)
+//                    .nextId(DistributedStoreSerializers.STORE_CUSTOM_BEGIN)
+//                    .build();
+//        }
+//    };
     protected static final Serializer SERIALIZER = Serializer.using(
             KryoNamespace.newBuilder()
                     .register(DistributedStoreSerializers.STORE_COMMON)
                     .nextId(DistributedStoreSerializers.STORE_CUSTOM_BEGIN)
                     .build()
     );
+
 
     protected static final KryoNamespace.Builder SERIALIZER_BUILDER = KryoNamespace.newBuilder()
             .register(KryoNamespaces.API)
@@ -246,7 +266,48 @@ public class NewDistributedFlowTableStore
                 .withTimestampProvider((k, v) -> new WallClockTimestamp())
                 .withTombstonesDisabled()
                 .build();
+
+        freeFlowEntryIdConsistentMap = storageService.<DeviceId,Map<FlowTableId,List<Integer>>>consistentMapBuilder()
+                .withName("onos-freeflow-entryids")
+                .withSerializer(SERIALIZER)
+                .withRelaxedReadConsistency()
+                .build();
+        freeFlowEntryIdMap = freeFlowEntryIdConsistentMap.asJavaMap();
+        flowEntryCountConsistentMap = storageService.<DeviceId,Map<FlowTableId,Integer>>consistentMapBuilder()
+                .withName("onos-freeflow-count")
+                .withSerializer(SERIALIZER)
+                .withRelaxedReadConsistency()
+                .build();
+        flowEntryCountMap=flowEntryCountConsistentMap.asJavaMap();
+        flowTableNoBaseConsistentMap = storageService.<DeviceId,Map<OFTableType,Byte>>consistentMapBuilder()
+                .withName("onos-flowtable-nobase")
+                .withSerializer(SERIALIZER)
+                .withRelaxedReadConsistency()
+                .build();
+        flowTableNoBaseMap=flowTableNoBaseConsistentMap.asJavaMap();
+        flowTableNoConsistentMap = storageService.<DeviceId,Map<OFTableType,Byte>>consistentMapBuilder()
+                .withName("onos-flowtable-no")
+                .withSerializer(SERIALIZER)
+                .withRelaxedReadConsistency()
+                .build();
+        flowTableNoMap =flowTableNoConsistentMap.asJavaMap();
+        freeFlowTableIdListConsistentMap = storageService.<DeviceId,Map<OFTableType,List<Byte>>>consistentMapBuilder()
+                .withName("onos-flowtable-list")
+                .withSerializer(SERIALIZER)
+                .withRelaxedReadConsistency()
+                .build();
+        freeFlowTableIdListMap = freeFlowTableIdListConsistentMap.asJavaMap();
+        flowTablesConsistMap=storageService.<DeviceId,Map<FlowTableId,StoredFlowTableEntry>>consistentMapBuilder()
+                .withName("onos-flowtables-store")
+                .withRelaxedReadConsistency()
+                .withSerializer(SERIALIZER)
+                .build();
+        flowTablesMap=flowTablesConsistMap.asJavaMap();
+
+
+
         deviceTableStats.addListener(tableStatsListener);
+
 
         logConfig("Started");
     }
@@ -349,15 +410,11 @@ public class NewDistributedFlowTableStore
         clusterCommunicator.addSubscriber(
                 REMOVE_FLOW_TABLE, SERIALIZER::decode, this::removeFlowTableInternal, SERIALIZER::encode, executor);
         clusterCommunicator.addSubscriber(
-                REMOVE_FLOW_TABLE, SERIALIZER::decode, this::removeFlowTableInternal, SERIALIZER::encode, executor);
-        clusterCommunicator.addSubscriber(
                 FLOW_TABLE_BACKUP, SERIALIZER::decode, flowTable::onBackupReceipt, SERIALIZER::encode, executor);
         clusterCommunicator.addSubscriber(
-                GET_NEW_GLOBAL_TABLEID, SERIALIZER::decode, flowTable::getGlobalFlowTableId,
-                SERIALIZER::encode, executor);
+                GET_NEW_GLOBAL_TABLEID, SERIALIZER::decode, flowTable::getGlobalFlowTableId, SERIALIZER::encode, executor);
         clusterCommunicator.addSubscriber(
-                GET_NEW_GLOBAL_ENTRYID, SERIALIZER::decode, flowTable::getFlowEntryId,
-                SERIALIZER::encode, executor);
+                GET_NEW_GLOBAL_ENTRYID, SERIALIZER::decode, flowTable::getFlowEntryId, SERIALIZER::encode, executor);
     }
 
     private void unregisterMessageHandlers() {
@@ -373,7 +430,7 @@ public class NewDistributedFlowTableStore
 
     private void logConfig(String prefix) {
         log.info("{} with msgHandlerPoolSize = {}; backupEnabled = {}, backupPeriod = {}",
-                prefix, msgHandlerPoolSize, backupEnabled, backupPeriod);
+                 prefix, msgHandlerPoolSize, backupEnabled, backupPeriod);
     }
 
     /**
@@ -384,25 +441,27 @@ public class NewDistributedFlowTableStore
 
         log.info("initializeSwitchStore for device: {}", deviceId);
         Map<FlowTableId, Integer> tcount = new ConcurrentHashMap<>();
-        flowEntryCount.putIfAbsent(deviceId, tcount);
-
+        tcount.put(FlowTableId.valueOf(0),0);
+        flowEntryCountMap.putIfAbsent(deviceId, tcount);
         List<Integer> ids = new ArrayList<>();
         Map<FlowTableId, List<Integer>> tids = new ConcurrentHashMap<>();
-        freeFlowEntryIds.putIfAbsent(deviceId, tids);
+        freeFlowEntryIdMap.putIfAbsent(deviceId, tids);//initialization map all is null
 
         Map<FlowTableId, Map<Integer, FlowRule>> tfs = new ConcurrentHashMap<>();
+        Map<Integer, FlowRule>emptyTmp=new HashMap<>();
+        tfs.putIfAbsent(new FlowTableId(0),emptyTmp);
         flowEntries.putIfAbsent(deviceId, tfs);
     }
-
+    //if pof switch removed all the map well be cleared
     @Override
     public void removeSwitchStore(DeviceId deviceId) {
 
         log.info("removeSwitchStore for device: {}", deviceId);
-        flowEntryCount.remove(deviceId);
-        freeFlowEntryIds.remove(deviceId);
+        flowEntryCountMap.remove(deviceId);
+        freeFlowEntryIdMap.remove(deviceId);
         flowEntries.remove(deviceId);
 
-        freeFlowTableIDListMap.remove(deviceId);
+        freeFlowTableIdListMap.remove(deviceId);
         flowTableNoMap.remove(deviceId);
         flowTableNoBaseMap.remove(deviceId);
         flowTable.removeDevice(deviceId);
@@ -421,6 +480,7 @@ public class NewDistributedFlowTableStore
 
     @Override
     public void setFlowTableNoBase(DeviceId deviceId, OFFlowTableResource of) {
+        log.info("@niubin setFlowTableNoBase");
         log.info("+++++ setFlowTableNoBase for device {}", deviceId.toString());
         byte base = 0;
         OFTableResource tableResource;
@@ -442,24 +502,24 @@ public class NewDistributedFlowTableStore
         }
         this.flowTableNoMap.put(deviceId, noMap);
         this.flowTableNoBaseMap.put(deviceId, noBaseMap);
-        this.freeFlowTableIDListMap.put(deviceId, freeIDListMap);
+        this.freeFlowTableIdListMap.put(deviceId, freeIDListMap);
     }
-
-
 
     @Override
     public byte parseToSmallTableId(DeviceId deviceId, int globalTableId) {
         FlowTableId tableId = FlowTableId.valueOf(globalTableId);
 
-        if (FLOWTABLES.get(deviceId) != null) {
-            FlowTable flowtable = FLOWTABLES.get(deviceId).get(tableId);
+        if (flowTablesMap.get(deviceId) != null) {
+            FlowTable flowtable = flowTablesMap.get(deviceId).get(tableId);
             if (flowtable != null) {
                 return flowtable.flowTable().getTableId();
             }
         }
 
-        for (byte tableType = (byte) (OFTableType.OF_MAX_TABLE_TYPE.getValue() - 1); tableType >= 0; tableType--) {
-            byte flowTableNoBase = flowTableNoBaseMap.get(deviceId).get(OFTableType.values()[tableType]);
+        for (byte tableType = (byte) (OFTableType.OF_MAX_TABLE_TYPE.getValue() - 1);
+             tableType >= 0; tableType--) {
+            byte flowTableNoBase = flowTableNoBaseMap.get(deviceId)
+                    .get(OFTableType.values()[tableType]);
 
             if (flowTableNoBase == -1) {
                 return flowTableNoBase;
@@ -490,46 +550,78 @@ public class NewDistributedFlowTableStore
 
     @Override
     public Map<OFTableType, Byte> getFlowTableNoMap(DeviceId deviceId) {
+
         return this.flowTableNoMap.get(deviceId);
     }
 
     @Override
     public Map<OFTableType, List<Byte>> getFreeFlowTableIDListMap(DeviceId deviceId) {
-        return this.freeFlowTableIDListMap.get(deviceId);
+        return this.freeFlowTableIdListMap.get(deviceId);
     }
 
     @Override
     public int getFlowEntryCount(DeviceId deviceId, FlowTableId flowTableId) {
-        return flowEntryCount.get(deviceId).get(flowTableId);
+        log.info("get-flow-entry-count--flowEntryCountMap: {}", flowEntryCountMap);
+        return flowEntryCountMap.get(deviceId).get(flowTableId);
     }
 
     @Override
     public void addFlowEntryCount(DeviceId deviceId, FlowTableId flowTableId) {
-        Integer tmp = flowEntryCount.get(deviceId).get(flowTableId);
-        flowEntryCount.get(deviceId).replace(flowTableId, tmp + 1);
+
+        log.info("addflowentrycount--flowEntryCountMap: {}", flowEntryCountMap);
+        Integer tmp = flowEntryCountMap.get(deviceId).get(flowTableId);
+        for(FlowTableId flowTableIdTmp:flowEntryCountMap.get(deviceId).keySet()){
+            if(flowTableIdTmp.equals(flowTableId)){
+                flowEntryCountTmpMap.put(flowTableIdTmp, tmp + 1);
+            } else {
+
+                flowEntryCountTmpMap.put(flowTableIdTmp, flowEntryCountMap.get(deviceId).get(flowTableIdTmp));
+            }
+        }
+        flowEntryCountMap.put(deviceId, flowEntryCountTmpMap);
+
+
         log.info("++++addFlowEntryCount: {}", tmp + 1);
+        log.info("addflowentrycountmap-1-flowentrycountmap: {}", flowEntryCountMap);
     }
 
     @Override
     public void deleteFlowEntryCount(DeviceId deviceId, FlowTableId flowTableId) {
-        Integer tmp = flowEntryCount.get(deviceId).get(flowTableId);
-        flowEntryCount.get(deviceId).replace(flowTableId, tmp - 1);
+
+        Integer tmp = flowEntryCountMap.get(deviceId).get(flowTableId);
+        for(FlowTableId flowTableIdTmp:flowEntryCountMap.get(deviceId).keySet()){
+            if(flowTableIdTmp.equals(flowTableId)){
+                flowEntryCountTmpMap.put(flowTableIdTmp, tmp - 1);
+            } else {
+
+                flowEntryCountTmpMap.put(flowTableIdTmp, flowEntryCountMap.get(deviceId).get(flowTableIdTmp));
+            }
+        }
+
+        flowEntryCountMap.put(deviceId, flowEntryCountTmpMap);
+
+
     }
 
     @Override
     public List<Integer> getFreeFlowEntryIds(DeviceId deviceId, FlowTableId flowTableId) {
-        return freeFlowEntryIds.get(deviceId).get(flowTableId);
+        return freeFlowEntryIdMap.get(deviceId).get(flowTableId);
     }
 
     @Override
     public void addFreeFlowEntryIds(DeviceId deviceId, FlowTableId flowTableId, Integer flowEntryId) {
-        freeFlowEntryIds.get(deviceId).get(flowTableId).add(flowEntryId);
-
+        freeFlowEntryIdTmpMap.clear();
+        freeFlowEntryIdTmpMap.putAll(freeFlowEntryIdMap.get(deviceId));
+        freeFlowEntryIdTmpMap.get(flowTableId).add(flowEntryId);
+        freeFlowEntryIdMap.put(deviceId,freeFlowEntryIdTmpMap);
     }
 
     @Override
     public void deleteFreeFlowEntryIds(DeviceId deviceId, FlowTableId flowTableId, Integer flowEntryId) {
-        freeFlowEntryIds.get(deviceId).get(flowTableId).remove((Object) flowEntryId);
+        freeFlowEntryIdTmpMap.clear();
+        freeFlowEntryIdTmpMap.putAll(freeFlowEntryIdMap.get(deviceId));
+        freeFlowEntryIdTmpMap.get(flowTableId).remove(flowEntryId);
+        freeFlowEntryIdMap.put(deviceId,freeFlowEntryIdTmpMap);
     }
 
     public Map<FlowTableId, Map<Integer, FlowRule>> getFlowEntries(DeviceId deviceId) {
@@ -545,7 +637,6 @@ public class NewDistributedFlowTableStore
     @Override
     public Map<Integer, FlowRule> getFlowEntries(DeviceId deviceId, FlowTableId flowTableId) {
         log.info("+++++ getFlowEntries by deviceId: {} and tableID: {}", deviceId, flowTableId.value());
-
         if (flowEntries.get(deviceId).get(flowTableId) == null) {
             log.info("+++++ getFlowEntries by tableID: {} is null", flowTableId);
         }
@@ -593,16 +684,16 @@ public class NewDistributedFlowTableStore
         }
 
         log.trace("Forwarding getFlowTableEntry to {}, which is the primary (master) for device {}",
-                master, table.deviceId());
+                  master, table.deviceId());
 
         return Tools.futureGetOrElse(clusterCommunicator.sendAndReceive(table,
-                FlowTableStoreMessageSubjects.GET_FLOW_TABLE,
-                SERIALIZER::encode,
-                SERIALIZER::decode,
-                master),
-                FLOW_TABLE_STORE_TIMEOUT_MILLIS,
-                TimeUnit.MILLISECONDS,
-                null);
+                                                                        FlowTableStoreMessageSubjects.GET_FLOW_TABLE,
+                                                                        SERIALIZER::encode,
+                                                                        SERIALIZER::decode,
+                                                                        master),
+                                     FLOW_TABLE_STORE_TIMEOUT_MILLIS,
+                                     TimeUnit.MILLISECONDS,
+                                     null);
     }
 
     @Override
@@ -622,16 +713,16 @@ public class NewDistributedFlowTableStore
         }
 
         log.trace("Forwarding getFlowEntries to {}, which is the primary (master) for device {}",
-                master, deviceId);
+                  master, deviceId);
 
         return Tools.futureGetOrElse(clusterCommunicator.sendAndReceive(deviceId,
-                FlowTableStoreMessageSubjects.GET_DEVICE_FLOW_TABLES,
-                SERIALIZER::encode,
-                SERIALIZER::decode,
-                master),
-                FLOW_TABLE_STORE_TIMEOUT_MILLIS,
-                TimeUnit.MILLISECONDS,
-                Collections.emptyList());
+                                                                        FlowTableStoreMessageSubjects.GET_DEVICE_FLOW_TABLES,
+                                                                        SERIALIZER::encode,
+                                                                        SERIALIZER::decode,
+                                                                        master),
+                                     FLOW_TABLE_STORE_TIMEOUT_MILLIS,
+                                     TimeUnit.MILLISECONDS,
+                                     Collections.emptyList());
     }
     @Override
     public int getNewGlobalFlowTableId(DeviceId deviceId, OFTableType tableType) {
@@ -648,15 +739,15 @@ public class NewDistributedFlowTableStore
         }
 
         log.info("Forwarding getGlobalTableId to {},which is the primary(master) for device {}",
-                  master, deviceOFTableType.getDeviceId());
+                 master, deviceOFTableType.getDeviceId());
         return Tools.futureGetOrElse(clusterCommunicator.sendAndReceive(deviceOFTableType,
-                FlowTableStoreMessageSubjects.GET_NEW_GLOBAL_TABLEID,
-                SERIALIZER::encode,
-                SERIALIZER::decode,
-                master),
-                GET_NEW_GLOBALTABLEID_TIMEOUT_MILLIS,
-                TimeUnit.MILLISECONDS,
-                0);
+                                                                        FlowTableStoreMessageSubjects.GET_NEW_GLOBAL_TABLEID,
+                                                                        SERIALIZER::encode,
+                                                                        SERIALIZER::decode,
+                                                                        master),
+                                     GET_NEW_GLOBALTABLEID_TIMEOUT_MILLIS,
+                                     TimeUnit.MILLISECONDS,
+                                     0);
     }
     @Override
     public int getNewFlowEntryId(DeviceId deviceId, int tableId) {
@@ -672,20 +763,19 @@ public class NewDistributedFlowTableStore
         }
 
         log.info("Forwarding getFlowEntryId to {}, which is the primary(master) for device {}",
-                  master, deviceTableId.getDeviceId());
+                 master, deviceTableId.getDeviceId());
         return Tools.futureGetOrElse(clusterCommunicator.sendAndReceive(deviceTableId,
-                FlowTableStoreMessageSubjects.GET_NEW_GLOBAL_ENTRYID,
-                SERIALIZER::encode,
-                SERIALIZER::decode,
-                master),
-                GET_NEW_FLOWENTRYID_TIMEOUT_MILLIS,
-                TimeUnit.MILLISECONDS,
-                0);
+                                                                        FlowTableStoreMessageSubjects.GET_NEW_GLOBAL_ENTRYID,
+                                                                        SERIALIZER::encode,
+                                                                        SERIALIZER::decode,
+                                                                        master),
+                                     GET_NEW_FLOWENTRYID_TIMEOUT_MILLIS,
+                                     TimeUnit.MILLISECONDS,
+                                     0);
     }
 
     @Override
     public void storeFlowTable(FlowTable table) {
-//        log.info("+++++ before storeBatch");
         storeBatch(new FlowTableBatchOperation(
                 Collections.singletonList(new FlowTableBatchEntry(FlowTableBatchEntry.FlowTableOperation.ADD, table)),
                 table.deviceId(), idGenerator.getNewId()));
@@ -716,18 +806,17 @@ public class NewDistributedFlowTableStore
         }
 
         if (Objects.equals(local, master)) {
-//            log.info("+++++ NewDistributedTableStore.storeBatchInternal()");
             storeBatchInternal(operation);
             return;
         }
 
         log.trace("Forwarding storeBatch to {}, which is the primary (master) for device {}",
-                master, deviceId);
+                  master, deviceId);
 
         clusterCommunicator.unicast(operation,
-                APPLY_BATCH_TABLES,
-                SERIALIZER::encode,
-                master)
+                                    APPLY_BATCH_TABLES,
+                                    SERIALIZER::encode,
+                                    master)
                 .whenComplete((result, error) -> {
                     if (error != null) {
                         log.warn("Failed to storeBatch: {} to {}", operation, master, error);
@@ -756,8 +845,8 @@ public class NewDistributedFlowTableStore
         }
 
         notifyDelegate(FlowTableBatchEvent.requested(new
-                FlowTableBatchRequest(operation.id(),
-                currentOps), operation.deviceId()));
+                                                             FlowTableBatchRequest(operation.id(),
+                                                                                   currentOps), operation.deviceId()));
     }
 
     private Set<FlowTableBatchEntry> updateStoreInternal(FlowTableBatchOperation operation) {
@@ -827,7 +916,7 @@ public class NewDistributedFlowTableStore
         }
 
         log.warn("Tried to update FlowTable {} state,"
-                + " while the Node was not the master.", table);
+                         + " while the Node was not the master.", table);
         return null;
     }
 
@@ -872,7 +961,7 @@ public class NewDistributedFlowTableStore
         }
 
         log.trace("Forwarding removeFlowTable to {}, which is the master for device {}",
-                master, deviceId);
+                  master, deviceId);
 
         return Futures.getUnchecked(clusterCommunicator.sendAndReceive(
                 table,
@@ -940,59 +1029,68 @@ public class NewDistributedFlowTableStore
 
     private class InternalFlowTable implements ReplicaInfoEventListener {
 
+        private Map<OFTableType,Byte> flowTableNoTmpMap = new HashMap<>();
+
+        private Map<FlowTableId,List<Integer>> freeFlowTableIdListTmpMap = new HashMap<>();
+
+
         public int getGlobalFlowTableId(DeviceOFTableType deviceOFTableType) {
-            int newFlowTableID = -1;
-            OFTableType tableType = deviceOFTableType.getOfTableType();
+            OFTableType ofTableType = deviceOFTableType.getOfTableType();
             DeviceId deviceId = deviceOFTableType.getDeviceId();
-
-            OFTableType ofTableType = tableType;
-            log.info("getGlobalFlowTableIOFTableType getglobaltableid");
-            if (null == freeFlowTableIDListMap.get(deviceId)
-                    || null == freeFlowTableIDListMap.get(deviceId).get(ofTableType)
-                    || 0 == freeFlowTableIDListMap.get(deviceId).get(ofTableType).size()) {
-
+            int newFlowTableID = -1;
+            if (null == freeFlowTableIdListMap.get(deviceId)
+                    || null == freeFlowTableIdListMap.get(deviceId).get(ofTableType)
+                    || 0 == freeFlowTableIdListMap.get(deviceId).get(ofTableType).size()) {
                 newFlowTableID = flowTableNoMap.get(deviceId).get(ofTableType);
-                flowTableNoMap.get(deviceId).replace(ofTableType, Byte.valueOf((byte) (newFlowTableID + 1)));
-                log.info("get new flow table id from flowTableNoMap: {}", newFlowTableID);
+                for(OFTableType ofTableTypeTmp: flowTableNoMap.get(deviceId).keySet()){
+                    if(ofTableTypeTmp.equals(ofTableType)){
+                        this.flowTableNoTmpMap.put(ofTableTypeTmp, Byte.valueOf((byte)(newFlowTableID + 1)));
+                    } else {
+                        this.flowTableNoTmpMap.put(ofTableTypeTmp, flowTableNoMap.get(deviceId).get(ofTableTypeTmp));
+                    }
+                }
+                flowTableNoMap.put(deviceId, this.flowTableNoTmpMap);
             } else {
-                newFlowTableID = freeFlowTableIDListMap.get(deviceId).get(ofTableType).remove(0);
-                log.info("get new flow table id from freeFlowTableIDListMap: {}", newFlowTableID);
+                newFlowTableID = freeFlowTableIdListMap.get(deviceId).get(ofTableType).remove(0);
             }
+            for(FlowTableId flowTableIdTmp : flowEntryCountMap.get(deviceId).keySet()){
 
-            log.info("getGlobalTableId internal");
-            flowEntryCount.get(deviceId).putIfAbsent(FlowTableId.valueOf(newFlowTableID), 0);
+                flowEntryCountTmpMap.put(flowTableIdTmp, flowEntryCountMap.get(deviceId).get(flowTableIdTmp));
+            }
+            flowEntryCountTmpMap.put(new FlowTableId(newFlowTableID), 0);
+            flowEntryCountMap.put(deviceId, flowEntryCountTmpMap);
+
+            for(FlowTableId flowTableIdTmp : freeFlowEntryIdMap.get(deviceId).keySet()){
+                this.freeFlowTableIdListTmpMap.put(flowTableIdTmp, freeFlowEntryIdMap.get(deviceId).get(flowTableIdTmp));
+            }
             List<Integer> ids = new ArrayList<>();
-            freeFlowEntryIds.get(deviceId).putIfAbsent(FlowTableId.valueOf(newFlowTableID), ids);
+            this.freeFlowTableIdListTmpMap.put(FlowTableId.valueOf(newFlowTableID), ids);
+            freeFlowEntryIdMap.put(deviceId, this.freeFlowTableIdListTmpMap);
+
             Map<Integer, FlowRule> fs = new ConcurrentHashMap<>();
             flowEntries.get(deviceId).putIfAbsent(FlowTableId.valueOf(newFlowTableID), fs);
-
             return newFlowTableID;
         }
 
         public int getFlowEntryId(DeviceTableId deviceTableId) {
             int newFlowEntryId = -1;
-            log.info("++++ getNewFlowEntryId1");
+
             DeviceId deviceId = deviceTableId.getDeviceId();
             int tableId = deviceTableId.getTableId();
 
-            if (null == freeFlowEntryIds.get(deviceId)
-                    || null == freeFlowEntryIds.get(deviceId).get(FlowTableId.valueOf(tableId))
-                    || 0 == freeFlowEntryIds.get(deviceId).get(FlowTableId.valueOf(tableId)).size()) {
-
-                log.info("++++ getNewFlowEntryId2");
-                log.info("tableid is {}" + FlowTableId.valueOf(tableId));
+            if (null == freeFlowEntryIdMap.get(deviceId)
+                    || null == freeFlowEntryIdMap.get(deviceId).get(FlowTableId.valueOf(tableId))
+                    || 0 == freeFlowEntryIdMap.get(deviceId)
+                    .get(FlowTableId.valueOf(tableId)).size()) {
                 newFlowEntryId = getFlowEntryCount(deviceId, FlowTableId.valueOf(tableId));
                 addFlowEntryCount(deviceId, FlowTableId.valueOf(tableId));
-                log.info("get new flow table id from flowEntryCount: {}", newFlowEntryId);
-                int tempNext = getFlowEntryCount(deviceId, FlowTableId.valueOf(tableId));
-                log.info("temp_next:{}", tempNext);
+
             } else {
-                log.info("++++ getNewFlowEntryId3");
-                newFlowEntryId = freeFlowEntryIds.get(deviceId).get(FlowTableId.valueOf(tableId)).remove(0);
+                newFlowEntryId = freeFlowEntryIdMap.get(deviceId)
+                        .get(FlowTableId.valueOf(tableId)).remove(0);
                 log.info("get new flow table id from freeFlowEntryIDListMap: {}", newFlowEntryId);
 
             }
-
             return newFlowEntryId;
         }
 
@@ -1027,7 +1125,7 @@ public class NewDistributedFlowTableStore
                     // backups when either current backup comes online or a different backup node
                     // is chosen.
                     log.warn("Lost backup location {} for deviceId {} and no alternate backup node exists. "
-                            + "Flows can be lost if the master goes down", currentBackupNode, deviceId);
+                                     + "Flows can be lost if the master goes down", currentBackupNode, deviceId);
                     lastBackupNodes.remove(deviceId);
                     lastBackupTimes.remove(deviceId);
                     return;
@@ -1035,10 +1133,10 @@ public class NewDistributedFlowTableStore
                     // a new master is elected.
                 }
                 log.debug("Backup location for {} has changed from {} to {}.",
-                        deviceId, currentBackupNode, newBackupNode);
+                          deviceId, currentBackupNode, newBackupNode);
                 backupSenderExecutor.schedule(() -> backupFlowTables(newBackupNode, Sets.newHashSet(deviceId)),
-                        0,
-                        TimeUnit.SECONDS);
+                                              0,
+                                              TimeUnit.SECONDS);
             }
         }
 
@@ -1060,17 +1158,17 @@ public class NewDistributedFlowTableStore
                     Map<FlowTableId,  StoredFlowTableEntry>>,
                     Set<DeviceId>>
                     sendAndReceive(deviceFlowTables,
-                    FLOW_TABLE_BACKUP,
-                    SERIALIZER::encode,
-                    SERIALIZER::decode,
-                    nodeId)
+                                   FLOW_TABLE_BACKUP,
+                                   SERIALIZER::encode,
+                                   SERIALIZER::decode,
+                                   nodeId)
                     .whenComplete((backedupDevices, error) -> {
                         Set<DeviceId> devicesNotBackedup = error != null ?
                                 deviceFlowTables.keySet() :
                                 Sets.difference(deviceFlowTables.keySet(), backedupDevices);
                         if (devicesNotBackedup.size() > 0) {
                             log.warn("Failed to backup devices: {}. Reason: {}",
-                                    devicesNotBackedup, error.getMessage());
+                                     devicesNotBackedup, error.getMessage());
                         }
                         if (backedupDevices != null) {
                             backedupDevices.forEach(id -> {
@@ -1089,7 +1187,7 @@ public class NewDistributedFlowTableStore
          */
         public Map<FlowTableId,  StoredFlowTableEntry> getFlowTables(DeviceId deviceId) {
             if (persistenceEnabled) {
-                return FLOWTABLES.computeIfAbsent(deviceId, id -> persistenceService
+                return flowTablesMap.computeIfAbsent(deviceId, id -> persistenceService
                         .<FlowTableId,  StoredFlowTableEntry>persistentMapBuilder()
                         .withName("FlowTable:" + deviceId.toString())
                         .withSerializer(new Serializer() {
@@ -1105,7 +1203,7 @@ public class NewDistributedFlowTableStore
                         })
                         .build());
             } else {
-                return FLOWTABLES.computeIfAbsent(deviceId, id -> Maps.newConcurrentMap());
+                return flowTablesMap.computeIfAbsent(deviceId, id -> Maps.newConcurrentMap());
             }
         }
 
@@ -1128,37 +1226,54 @@ public class NewDistributedFlowTableStore
         }
 
         public void add(FlowTable table) {
-            getFlowTables(table.deviceId())
-                    .compute(table.id(), (k, stored) -> {
-                        //TODO compare stored and time timestamps
-                        //TODO the key is not updated
-                        return (StoredFlowTableEntry) table;
-                    });
+            DeviceId deviceId = table.deviceId();
+            FlowTableId flowTableId = table.id();
+            flowTablesTmpMap = getFlowTables(deviceId);
+//                    .compute(table.id(), (k, stored) -> {
+//                        //TODO compare stored and time timestamps
+//                        //TODO the key is not updated
+//                        return (StoredFlowTableEntry) table;
+//                    });
+            flowTablesTmpMap.putAll(flowTablesMap.get(deviceId));
+            flowTablesTmpMap.put(flowTableId,(StoredFlowTableEntry)table);
+            flowTablesMap.put(deviceId,flowTablesTmpMap);
 
-            lastUpdateTimes.put(table.deviceId(), System.currentTimeMillis());
+            lastUpdateTimes.put(deviceId, System.currentTimeMillis());
         }
 
         public FlowTable remove(DeviceId deviceId, FlowTable table) {
-
+            DeviceId tableDeviceId = table.deviceId();
+            FlowTableId flowTableId = table.id();
             log.info("++++ InternalFlowTable.remove()");
             final AtomicReference<FlowTable> removedRule = new AtomicReference<>();
 
             log.info("++++ before getFlowTableInternal()");
-            FlowTable stored =  getFlowTableInternal(table.deviceId(), table.id());
+            FlowTable stored =  getFlowTableInternal(tableDeviceId, flowTableId);
             log.info("++++ after getFlowTableInternal()");
 
             removedRule.set(stored);
 
             if (stored != null) {
                 log.info("+++++ Remove the table!");
-                FLOWTABLES.get(table.deviceId()).remove(table.id());
-                freeFlowTableIDListMap.get(table.deviceId()).get(table.flowTable()
-                        .getTableType()).add((byte) table.id().value());
-                Collections.sort(freeFlowTableIDListMap.get(table.deviceId()).get(table.flowTable().getTableType()));
-                if (flowEntries.get(table.deviceId()) != null) {
-                    flowEntries.get(table.deviceId()).remove(table.id());
-                    flowEntryCount.get(table.deviceId()).remove(table.id());
-                    freeFlowEntryIds.get(table.deviceId()).remove(table.id());
+                flowTablesTmpMap.clear();
+                flowTablesTmpMap.putAll(flowTablesMap.get(tableDeviceId));
+                flowTablesTmpMap.remove(flowTableId);
+                flowTablesMap.put(tableDeviceId,flowTablesTmpMap);
+                freeFlowTableIdListMap.get(tableDeviceId).get(table.flowTable()
+                                                                      .getTableType()).add((byte) flowTableId.value());
+                Collections.sort(freeFlowTableIdListMap.get(tableDeviceId)
+                                         .get(table.flowTable().getTableType()));
+                if (flowEntries.get(tableDeviceId) != null ) {
+                    flowEntries.get(table.deviceId()).remove(flowTableId);
+                    flowEntryCountTmpMap.clear();
+                    flowEntryCountTmpMap.putAll(flowEntryCountMap.get(tableDeviceId));
+                    flowEntryCountTmpMap.remove(flowTableId);
+                    flowEntryCountMap.put(tableDeviceId,flowEntryCountTmpMap);
+
+                    freeFlowEntryIdTmpMap.clear();
+                    freeFlowEntryIdTmpMap.putAll(freeFlowEntryIdMap.get(tableDeviceId));
+                    freeFlowEntryIdTmpMap.remove(flowTableId);
+                    freeFlowEntryIdMap.put(tableDeviceId,freeFlowEntryIdTmpMap);
                 }
             } else {
                 log.info("No table exit!");
@@ -1173,7 +1288,7 @@ public class NewDistributedFlowTableStore
         }
 
         public void purgeFlowTable(DeviceId deviceId) {
-            FLOWTABLES.remove(deviceId);
+            flowTablesMap.remove(deviceId);
         }
 
         private NodeId getBackupNode(DeviceId deviceId) {
@@ -1241,33 +1356,9 @@ public class NewDistributedFlowTableStore
 
         public void removeDevice(DeviceId deviceId) {
             log.info("++++ removeDevice");
-            FLOWTABLES.remove(deviceId);
+            flowTablesMap.remove(deviceId);
         }
     }
-
-//    @Override
-//    public FlowTableEvent updateTableStatistics(DeviceId deviceId,
-//                                               List<TableStatisticsEntry> tableStats) {
-//        deviceTableStats.put(deviceId, tableStats);
-//        return null;
-//    }
-
-//    @Override
-//    public Iterable<TableStatisticsEntry> getTableStatistics(DeviceId deviceId) {
-//        NodeId master = mastershipService.getMasterFor(deviceId);
-//
-//        if (master == null) {
-//            log.debug("Failed to getTableStats: No master for {}", deviceId);
-//            return Collections.emptyList();
-//        }
-//
-//        List<TableStatisticsEntry> tableStats = deviceTableStats.get(deviceId);
-//        if (tableStats == null) {
-//            return Collections.emptyList();
-//        }
-//        return ImmutableList.copyOf(tableStats);
-//    }
-
     private class InternalTableStatsListener
             implements EventuallyConsistentMapListener<DeviceId, List<TableStatisticsEntry>> {
         @Override

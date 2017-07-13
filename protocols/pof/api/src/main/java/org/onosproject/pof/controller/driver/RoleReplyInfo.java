@@ -30,25 +30,20 @@ import org.onosproject.pof.controller.RoleState;
  */
 public class RoleReplyInfo {
     private final RoleState role;
-    private final U64 genId;
     private final long xid;
 
-    public RoleReplyInfo(RoleState role, U64 genId, long xid) {
+    public RoleReplyInfo(RoleState role, long xid) {
         this.role = role;
-        this.genId = genId;
         this.xid = xid;
     }
     public RoleState getRole() {
         return role;
-    }
-    public U64 getGenId() {
-        return genId;
     }
     public long getXid() {
         return xid;
     }
     @Override
     public String toString() {
-        return "[Role:" + role + " GenId:" + genId + " Xid:" + xid + "]";
+        return "[Role:" + role + " Xid:" + xid + "]";
     }
 }

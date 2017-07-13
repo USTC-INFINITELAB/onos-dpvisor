@@ -498,9 +498,8 @@ class OFChannelHandler extends IdleStateAwareChannelHandler {
                     // if two controllers are master (even if its only for
                     // a brief period). We might need to see if these errors
                     // persist before we reassert
-
-                    h.sw.handleRole(m);
-                    //h.sw.reassertRole();
+                    //h.sw.handleRole(m);
+                    h.sw.reassertRole();
                 } else if (m.getErrorType() == OFError.OFErrorType.OFPET_FLOW_MOD_FAILED.getValue() &&
                         (m.getErrorCode() ==
                         OFError.OFFlowModFailedCode.OFOFMFC_TABLE_FULL.ordinal())) {

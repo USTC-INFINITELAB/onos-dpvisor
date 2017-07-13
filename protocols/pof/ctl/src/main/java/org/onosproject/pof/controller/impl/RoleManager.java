@@ -17,44 +17,21 @@ package org.onosproject.pof.controller.impl;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import org.onosproject.floodlightpof.experimenter.nicira.OFNiciraExperimenterData;
-import org.onosproject.floodlightpof.experimenter.nicira.OFNiciraRoleExperimenterData;
-import org.onosproject.floodlightpof.experimenter.nicira.OFNiciraRoleRequestExperimenterData;
 import org.onosproject.floodlightpof.protocol.OFError;
 import org.onosproject.floodlightpof.protocol.OFExperimenter;
-import org.onosproject.floodlightpof.protocol.OFType;
 import org.onosproject.floodlightpof.protocol.OFRoleReply;
 import org.onosproject.floodlightpof.protocol.OFRoleRequest;
 import org.onosproject.floodlightpof.protocol.OFControllerRole;
-///import org.onosproject.floodlightpof.protocol.*;
 import org.onosproject.pof.controller.RoleState;
-//import org.onosproject.pof.controller.driver.*;
 import org.onosproject.pof.controller.driver.RoleHandler;
 import org.onosproject.pof.controller.driver.RoleRecvStatus;
 import org.onosproject.pof.controller.driver.PofSwitchDriver;
 import org.onosproject.pof.controller.driver.RoleReplyInfo;
 import org.onosproject.pof.controller.driver.SwitchStateException;
-
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
-
-import static org.onosproject.floodlightpof.protocol.OFControllerRole.ROLE_MASTER;
-import static org.onosproject.floodlightpof.protocol.OFControllerRole.ROLE_SLAVE;
-
-/*wenjian
-import org.onosproject.openflow.controller.RoleState;
-import org.onosproject.openflow.controller.driver.*;
-import org.projectfloodlight.openflow.protocol.*;
-import org.projectfloodlight.openflow.protocol.errormsg.OFBadRequestErrorMsg;
-import org.projectfloodlight.openflow.protocol.errormsg.OFRoleRequestFailedErrorMsg;
-import org.projectfloodlight.openflow.types.U64;
-*/
-
-
 /**
  * A utility class to handle role requests and replies for this channel.
  * After a role request is submitted the role changer keeps track of the
@@ -72,8 +49,8 @@ class RoleManager implements RoleHandler {
     // The cache for pending expected RoleReplies keyed on expected XID
     private Cache<Integer, RoleState> pendingReplies =
             CacheBuilder.newBuilder()
-                .expireAfterWrite(pendingXidTimeoutSeconds, TimeUnit.SECONDS)
-                .build();
+                    .expireAfterWrite(pendingXidTimeoutSeconds, TimeUnit.SECONDS)
+                    .build();
 
     // the expectation set by the caller for the returned role
     private RoleRecvStatus expectation;
@@ -84,128 +61,54 @@ class RoleManager implements RoleHandler {
         this.expectation = RoleRecvStatus.MATCHED_CURRENT_ROLE;
         this.sw = sw;
     }
-
-    /**
-     * Send NX role request message to the switch requesting the specified
-     * role.
-     *
-     * @param role role to request
-     */
-    private int sendNxRoleRequest(RoleState role) throws IOException {
+    private int sendPofRoleRequest(RoleState role) throws IOException {
         // Convert the role enum to the appropriate role to send
-        int roleToSend = OFNiciraRoleExperimenterData.NX_ROLE_OTHER;
-        //wenjian
+        OFControllerRole roleToSend;
+        roleToSend = OFControllerRole.ROLE_NOCHANGE;
         switch (role) {
-        case MASTER:
-            roleToSend = OFNiciraRoleExperimenterData.NX_ROLE_MASTER;
-            break;
-        case SLAVE:
-        case EQUAL:
-        default:
-            // ensuring that the only two roles sent to 1.0 switches with
-            // Nicira role support, are MASTER and SLAVE
-            roleToSend = OFNiciraRoleExperimenterData.NX_ROLE_OTHER;
-            log.debug("Sending Nx Role.SLAVE to switch {}.", sw);
-        }
-        OFExperimenter roleRequest = (OFExperimenter) sw.factory().getOFMessage(OFType.EXPERIMENTER);
-
-        int xid = sw.getNextTransactionId();
-        /*wenjian
-        OFExperimenter roleRequest = OFFactories.getFactory(OFVersion.OF_10)
-                .buildNiciraControllerRoleRequest()
-                .setXid(xid)
-                .setRole(roleToSend)
-                .build();
-                */
-        roleRequest.setXid(xid);
-        roleRequest.setExperimenter(OFNiciraExperimenterData.NX_EXPERIMENTER_ID);
-        OFNiciraRoleRequestExperimenterData roleRequestData = new OFNiciraRoleRequestExperimenterData();
-        roleRequestData.setRole(roleToSend);
-        roleRequest.setExperimenterData(roleRequestData);
-        roleRequest.setLengthU(OFExperimenter.minimumLength +
-                roleRequestData.getLength());
-
-
-        sw.sendRoleRequest(roleRequest);
-        return xid;
-    }
-
-    private int sendOF13RoleRequest(RoleState role) throws IOException {
-        // Convert the role enum to the appropriate role to send
-        OFControllerRole roleToSend = OFControllerRole.ROLE_NOCHANGE;
-        switch (role) {
-        case EQUAL:
-            roleToSend = OFControllerRole.ROLE_EQUAL;
-            break;
-        case MASTER:
-            roleToSend = ROLE_MASTER;
-            break;
-        case SLAVE:
-            roleToSend = ROLE_SLAVE;
-            break;
-        default:
-            log.warn("Sending default role.noChange to switch {}."
-                    + " Should only be used for queries.", sw);
+            case EQUAL:
+                roleToSend = OFControllerRole.ROLE_EQUAL;
+                break;
+            case MASTER:
+                roleToSend = OFControllerRole.ROLE_MASTER;
+                break;
+            case SLAVE:
+                roleToSend = OFControllerRole.ROLE_SLAVE;
+                break;
+            default:
+                log.warn("Sending default role.noChange to switch {}."
+                                 + " Should only be used for queries.", sw);
         }
 
-        int xid = sw.getNextTransactionId();
-        /*wenjian
-        OFRoleRequest rrm = OFFactories.getFactory(OFVersion.OF_13)
-                .buildRoleRequest()
-                .setRole(roleToSend)
-                .setXid(xid)
-                //FIXME fix below when we actually use generation ids
-                .setGenerationId(U64.ZERO)
-                .build();
-
-        wenjian*/
-        OFRoleRequest rrm = (OFRoleRequest) sw.factory().getOFMessage(OFType.ROLE_REQUEST);
-        rrm.setXid(xid);
-
+        OFRoleRequest rrm = new OFRoleRequest();
+        rrm.setOfControllerRole(roleToSend);
         sw.sendRoleRequest(rrm);
+        int xid = rrm.getXid();
+        log.info("OFRoleRequest {}", rrm.toString());
         return xid;
     }
-
     @Override
     public synchronized boolean sendRoleRequest(RoleState role, RoleRecvStatus exp)
             throws IOException {
         this.expectation = exp;
-
-        /*wenjian
-        if (sw.factory().getVersion() == OFVersion.OF_10) {
-            Boolean supportsNxRole = sw.supportNxRole();
-            if (!supportsNxRole) {
-                log.debug("Switch driver indicates no support for Nicira "
-                        + "role request messages. Not sending ...");
-                handleUnsentRoleMessage(role,
-                        expectation);
-                return false;
-            }
-            // OF1.0 switch with support for NX_ROLE_REQUEST vendor extn.
-            // make Role.EQUAL become Role.SLAVE
-            RoleState roleToSend = (role == RoleState.EQUAL) ? RoleState.SLAVE : role;
-            pendingReplies.put(sendNxRoleRequest(roleToSend), role);
-        } else {
-        wenjian*/
-            // OF1.3 switch, use OFPT_ROLE_REQUEST message
-            pendingReplies.put(sendOF13RoleRequest(role), role);
-        //}
+        int xid = sendPofRoleRequest(role);
+        pendingReplies.put(xid, role);
+        log.info("PendingReplies xid={},role={}", xid, role);
         return true;
     }
-
     private void handleUnsentRoleMessage(RoleState role,
-            RoleRecvStatus exp) throws IOException {
+                                         RoleRecvStatus exp) throws IOException {
         // typically this is triggered for a switch where role messages
         // are not supported - we confirm that the role being set is
         // master
         if (exp != RoleRecvStatus.MATCHED_SET_ROLE) {
 
             log.error("Expected MASTER role from registry for switch "
-                    + "which has no support for role-messages."
-                    + "Received {}. It is possible that this switch "
-                    + "is connected to other controllers, in which "
-                    + "case it should support role messages - not "
-                    + "moving forward.", role);
+                              + "which has no support for role-messages."
+                              + "Received {}. It is possible that this switch "
+                              + "is connected to other controllers, in which "
+                              + "case it should support role messages - not "
+                              + "moving forward.", role);
 
         }
 
@@ -219,7 +122,7 @@ class RoleManager implements RoleHandler {
         int xid = (int) rri.getXid();
         RoleState receivedRole = rri.getRole();
         RoleState expectedRole = pendingReplies.getIfPresent(xid);
-
+        log.info("deliverRoleReply receivedRole={}, xid={}, expectedRole={}", receivedRole, xid, expectedRole);
         if (expectedRole == null) {
             RoleState currentRole = (sw != null) ? sw.getRole() : null;
             if (currentRole != null) {
@@ -227,29 +130,29 @@ class RoleManager implements RoleHandler {
                     // Don't disconnect if the role reply we received is
                     // for the same role we are already in.
                     // FIXME: but we do from the caller anyways.
-                    log.debug("Received unexpected RoleReply from "
-                            + "Switch: {}. "
-                            + "Role in reply is same as current role of this "
-                            + "controller for this sw. Ignoring ...",
-                            sw.getStringId());
+                    log.info("Received unexpected RoleReply from "
+                                     + "Switch: {}. "
+                                     + "Role in reply is same as current role of this "
+                                     + "controller for this sw. Ignoring ...",
+                             sw.getStringId());
                     return RoleRecvStatus.OTHER_EXPECTATION;
                 } else {
                     String msg = String.format("Switch: [%s], "
-                            + "received unexpected RoleReply[%s]. "
-                            + "No roles are pending, and this controller's "
-                            + "current role:[%s] does not match reply. "
-                            + "Disconnecting switch ... ",
-                            sw.getStringId(),
-                            rri, currentRole);
+                                                       + "received unexpected RoleReply[%s]. "
+                                                       + "No roles are pending, and this controller's "
+                                                       + "current role:[%s] does not match reply. "
+                                                       + "Disconnecting switch ... ",
+                                               sw.getStringId(),
+                                               rri, currentRole);
                     throw new SwitchStateException(msg);
                 }
             }
-            log.debug("Received unexpected RoleReply {} from "
-                    + "Switch: {}. "
-                    + "This controller has no current role for this sw. "
-                    + "Ignoring ...",
-                      rri,
-                      sw == null ? "(null)" : sw.getStringId());
+            log.info("Received unexpected RoleReply {} from "
+                             + "Switch: {}. "
+                             + "This controller has no current role for this sw. "
+                             + "Ignoring ...",
+                     rri,
+                     sw == null ? "(null)" : sw.getStringId());
             return RoleRecvStatus.OTHER_EXPECTATION;
         }
 
@@ -265,9 +168,9 @@ class RoleManager implements RoleHandler {
         sw.returnRoleReply(expectedRole, receivedRole);
 
         if (expectedRole == receivedRole) {
-            log.debug("Received role reply message from {} that matched "
-                    + "expected role-reply {} with expectations {}",
-                    sw.getStringId(), receivedRole, expectation);
+            log.info("Received role reply message from {} that matched "
+                             + "expected role-reply {} with expectations {}",
+                     sw.getStringId(), receivedRole, expectation);
 
             // Done with this RoleReply; Invalidate
             pendingReplies.invalidate(xid);
@@ -303,55 +206,30 @@ class RoleManager implements RoleHandler {
         if (errorRole == null) {
             if (error.getErrorType() == OFError.OFErrorType.OFPET_ROLE_REQUEST_FAILED.getValue()) {
                 log.debug("Received an error msg from sw {} for a role request,"
-                        + " but not for pending request in role-changer; "
-                        + " ignoring error {} ...",
-                        sw.getStringId(), error);
+                                  + " but not for pending request in role-changer; "
+                                  + " ignoring error {} ...",
+                          sw.getStringId(), error);
             } else {
                 log.debug("Received an error msg from sw {}, but no pending "
-                        + "requests in role-changer; not handling ...",
-                        sw.getStringId());
+                                  + "requests in role-changer; not handling ...",
+                          sw.getStringId());
             }
             return RoleRecvStatus.OTHER_EXPECTATION;
         }
         // it is an error related to a currently pending role request message
         if (error.getErrorType() == OFError.OFErrorType.OFPET_BAD_REQUEST.getValue()) {
             log.error("Received a error msg {} from sw {} for "
-                    + "pending role request {}. Switch driver indicates "
-                    + "role-messaging is supported. Possible issues in "
-                    + "switch driver configuration?",
-                    (error).toString(),
-                    sw.getStringId(),
-                    errorRole);
+                              + "pending role request {}. Switch driver indicates "
+                              + "role-messaging is supported. Possible issues in "
+                              + "switch driver configuration?",
+                      (error).toString(),
+                      sw.getStringId(),
+                      errorRole);
             return RoleRecvStatus.UNSUPPORTED;
         }
 
         if (error.getErrorType() == OFError.OFErrorType.OFPET_ROLE_REQUEST_FAILED.getValue()) {
-            /*wenjian
-            OFRoleRequestFailedErrorMsg rrerr =
-                    (OFRoleRequestFailedErrorMsg) error;
-
-            switch (error.getErrorCode()) {
-            case BAD_ROLE:
-                // switch says that current-role-req has bad role?
-                // for now we disconnect
-                // fall-thru
-            case STALE:
-                // switch says that current-role-req has stale gen-id?
-                // for now we disconnect
-                // fall-thru
-            case UNSUP:
-                // switch says that current-role-req has role that
-                // cannot be supported? for now we disconnect
-                String msgx = String.format("Switch: [%s], "
-                        + "received Error to for pending role request [%s]. "
-                        + "Error:[%s]. Disconnecting switch ... ",
-                        sw.getStringId(),
-                        errorRole, error);
-                throw new SwitchStateException(msgx);
-            default:
-                break;
-            }
-            */
+            log.info("OFPET_ROLE_REQUEST_FAILED");
         }
 
         // This error message was for a role request message but we dont know
@@ -378,38 +256,7 @@ class RoleManager implements RoleHandler {
         if (vendor != 0x2320) {
             return null;
         }
-        /*
-        OFNiciraRoleReplyExperimenterData nrr =
-                (OFNiciraRoleReplyExperimenterData) experimenterMsg;
-
-        RoleState role = null;
-        OFNiciraControllerRole ncr = nrr.getRole();
-        switch (ncr) {
-        case ROLE_MASTER:
-            role = RoleState.MASTER;
-            break;
-        case ROLE_OTHER:
-            role = RoleState.EQUAL;
-            break;
-        case ROLE_SLAVE:
-            role = RoleState.SLAVE;
-            break;
-        default: //handled below
-        }
-
-        if (role == null) {
-            String msg = String.format("Switch: [%s], "
-                    + "received NX_ROLE_REPLY with invalid role "
-                    + "value %s",
-                    sw.getStringId(),
-                    nrr.getRole());
-            throw new SwitchStateException(msg);
-        }
-
-        return role;
-        */
         return null;
-        //wenjian
     }
 
     /**
@@ -422,30 +269,29 @@ class RoleManager implements RoleHandler {
     @Override
     public RoleReplyInfo extractOFRoleReply(OFRoleReply rrmsg)
             throws SwitchStateException {
-        /*wenjian
-        OFControllerRole cr = rrmsg.getRole();
+
+        // OFControllerRole cr = rrmsg.getOfControllerRole();
+        OFControllerRole cr = OFControllerRole.ROLE_MASTER;
         RoleState role = null;
         switch (cr) {
-        case ROLE_EQUAL:
-            role = RoleState.EQUAL;
-            break;
-        case ROLE_MASTER:
-            role = RoleState.MASTER;
-            break;
-        case ROLE_SLAVE:
-            role = RoleState.SLAVE;
-            break;
-        case ROLE_NOCHANGE: // switch should send current role
-        default:
-            String msg = String.format("Unknown controller role %s "
-                    + "received from switch %s", cr, sw);
-            throw new SwitchStateException(msg);
+            case ROLE_EQUAL:
+                role = RoleState.EQUAL;
+                break;
+            case ROLE_MASTER:
+                role = RoleState.MASTER;
+                break;
+            case ROLE_SLAVE:
+                role = RoleState.SLAVE;
+                break;
+            case ROLE_NOCHANGE: // switch should send current role
+            default:
+                String msg = String.format("Unknown controller role %s "
+                                                   + "received from switch %s", cr, sw);
+                throw new SwitchStateException(msg);
         }
-
-        return new RoleReplyInfo(role, rrmsg.getGenerationId(), rrmsg.getXid());
-        */
-        return null;
-        //wenjian
+        RoleReplyInfo roleReplyInfo = new RoleReplyInfo(role, rrmsg.getXid());
+        log.info("extractOFRoleReply role={}, xid={}", role, rrmsg.getXid());
+        return roleReplyInfo;
     }
 
 }

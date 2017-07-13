@@ -30,3 +30,5 @@ npm-debug.log
 sonar-project.properties
 
 out/
+apps/bmv2-demo/
+apps/optical/

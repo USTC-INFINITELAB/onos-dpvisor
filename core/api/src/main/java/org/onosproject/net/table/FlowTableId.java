@@ -22,7 +22,7 @@ import org.onlab.util.Identifier;
  */
 public final class FlowTableId extends Identifier<Long> {
 
-    private FlowTableId(long id) {
+    public FlowTableId(long id) {
         super(id);
     }
 
