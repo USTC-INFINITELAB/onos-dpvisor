@@ -26,6 +26,10 @@ import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.onlab.packet.Ethernet;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
+import org.onosproject.floodlightpof.protocol.action.OFAction;
+import org.onosproject.floodlightpof.protocol.action.OFActionOutput;
+import org.onosproject.floodlightpof.protocol.instruction.OFInstruction;
+import org.onosproject.floodlightpof.protocol.instruction.OFInstructionApplyActions;
 import org.onosproject.incubator.net.virtual.NetworkId;
 import org.onosproject.incubator.net.virtual.TenantId;
 import org.onosproject.incubator.net.virtual.VirtualDevice;
@@ -33,17 +37,22 @@ import org.onosproject.incubator.net.virtual.VirtualNetwork;
 import org.onosproject.incubator.net.virtual.VirtualNetworkAdminService;
 import org.onosproject.incubator.net.virtual.VirtualNetworkEvent;
 import org.onosproject.incubator.net.virtual.VirtualNetworkListener;
+import org.onosproject.incubator.net.virtual.VirtualPacketContext;
 import org.onosproject.incubator.net.virtual.VirtualPort;
 import org.onosproject.incubator.net.virtual.provider.AbstractVirtualProvider;
 import org.onosproject.incubator.net.virtual.provider.VirtualPacketProvider;
 import org.onosproject.incubator.net.virtual.provider.VirtualPacketProviderService;
 import org.onosproject.incubator.net.virtual.provider.VirtualProviderRegistryService;
 import org.onosproject.net.ConnectPoint;
+import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
 import org.onosproject.net.flow.DefaultTrafficTreatment;
 import org.onosproject.net.flow.TrafficTreatment;
+import org.onosproject.net.flow.instructions.DefaultPofActions;
+import org.onosproject.net.flow.instructions.DefaultPofInstructions;
 import org.onosproject.net.flow.instructions.Instruction;
 import org.onosproject.net.flow.instructions.Instructions;
+import org.onosproject.net.flow.instructions.PofInstruction;
 import org.onosproject.net.packet.DefaultInboundPacket;
 import org.onosproject.net.packet.DefaultOutboundPacket;
 import org.onosproject.net.packet.InboundPacket;
@@ -59,6 +68,8 @@ import org.slf4j.Logger;
 import java.nio.ByteBuffer;
 import java.util.Dictionary;
 import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -93,6 +104,8 @@ public class DefaultVirtualPofPacketProvider extends AbstractVirtualProvider
 
     private ApplicationId appId;
 
+    private VirtualPacketProviderService service;
+
 
     /**
      * Creates a provider with the supplied identifier.
@@ -107,6 +120,10 @@ public class DefaultVirtualPofPacketProvider extends AbstractVirtualProvider
         providerRegistryService.registerProvider(this);
         vnaService.addListener(virtualNetListener);
 
+        processor = new InternalPacketProcessor();
+        packetService.addProcessor(processor, PacketProcessor.director(2));
+        log.info("Packet processor {} for virtual network is added.", processor.getClass().getName());
+
         log.info("Started");
     }
 
@@ -114,6 +131,10 @@ public class DefaultVirtualPofPacketProvider extends AbstractVirtualProvider
     public void deactivate() {
         providerRegistryService.unregisterProvider(this);
         vnaService.removeListener(virtualNetListener);
+
+        packetService.removeProcessor(processor);
+        log.info("Packet processor {} for virtual network is removed.", processor.getClass().getName());
+        processor = null;
 
         log.info("Stopped");
     }
@@ -126,7 +147,20 @@ public class DefaultVirtualPofPacketProvider extends AbstractVirtualProvider
 
     @Override
     public void emit(NetworkId networkId, OutboundPacket packet) {
-       packetService.emit(devirtualize(networkId, packet));
+        packetService.emit(devirtualize(networkId, packet));
+    }
+
+    /**
+     * Send the outbound packet of a virtual context.
+     * This method is designed to support Context's send() method that invoked
+     * by applications.
+     * See {@link org.onosproject.net.packet.PacketContext}
+     *
+     * @param virtualPacketContext virtual packet context
+     */
+    protected void send(VirtualPacketContext virtualPacketContext) {
+        devirtualizeContext(virtualPacketContext)
+                .forEach(outboundPacket -> packetService.emit(outboundPacket));
     }
 
     /**
@@ -136,7 +170,7 @@ public class DefaultVirtualPofPacketProvider extends AbstractVirtualProvider
      * @param context A physical PacketContext be translated
      * @return A translated virtual PacketContext
      */
-    private DefaultVirtualPofPacketContext virtualize(PacketContext context) {
+    private VirtualPacketContext virtualize(PacketContext context) {
 
         VirtualPort vPort = getMappedVirtualPort(context.inPacket().receivedFrom());
 
@@ -156,10 +190,10 @@ public class DefaultVirtualPofPacketProvider extends AbstractVirtualProvider
                                               DefaultTrafficTreatment.builder().build(),
                                               ByteBuffer.wrap(eth.serialize()));
 
-            DefaultVirtualPofPacketContext vContext =
+            VirtualPacketContext vContext =
                     new DefaultVirtualPofPacketContext(context.time(), inPacket, outPkt,
                                                        false, vPort.networkId(),
-                                                       packetService, vnaService);
+                                                       this);
 
             return vContext;
         } else {
@@ -243,6 +277,103 @@ public class DefaultVirtualPofPacketProvider extends AbstractVirtualProvider
         return outboundPacket;
     }
 
+    /**
+     * Translate the requested a virtual Packet Context into
+     * a set physical outbound packets.
+     * This method is designed to support Context's send() method that invoked
+     * by applications.
+     * See {@link org.onosproject.net.packet.PacketContext}
+     *
+     * @param context A handled packet context
+     */
+    private Set<OutboundPacket> devirtualizeContext(VirtualPacketContext context) {
+
+        Set<OutboundPacket> outboundPackets = new HashSet<>();
+
+        NetworkId networkId = context.networkId();
+        TrafficTreatment vTreatment = context.treatmentBuilder().build();
+        DeviceId sendThrough = context.outPacket().sendThrough();
+
+        Set<VirtualPort> vPorts = vnaService
+                .getVirtualPorts(networkId, sendThrough);
+
+        List<Instruction> insList = vTreatment.allInstructions();
+
+        List<OFAction> ofActionList = new LinkedList<>();
+        List<PofInstruction> pofInsList = new LinkedList<>();
+
+        for (Instruction ins : insList) {
+            if (ins.type() == Instruction.Type.POFINSTRUCTION) {
+                PofInstruction pofInstruction = (PofInstruction) ins;
+                switch (pofInstruction.pofInstructionType()) {
+                    case POF_ACTION:
+                        DefaultPofInstructions.PofInstructionApplyActions pofInstructionApplyActions
+                                = (DefaultPofInstructions.PofInstructionApplyActions) pofInstruction;
+                        OFInstruction ofInstruction = pofInstructionApplyActions.instruction();
+                        OFInstructionApplyActions ofInstructionApplyActions
+                                = (OFInstructionApplyActions) ofInstruction;
+                        ofActionList = ofInstructionApplyActions.getActionList();
+                        break;
+                    case CALCULATE_FIELD:
+                    case GOTO_DIRECT_TABLE:
+                    case GOTO_TABLE:
+                    case WRITE_METADATA:
+                    case WRITE_METADATA_FROM_PACKET:
+                        pofInsList.add(pofInstruction);
+                        break;
+                    default:
+                        log.warn("Pof instruction type {} not yet implemented.", pofInstruction.pofInstructionType());
+                }
+            }
+        }
+
+        OFActionOutput ofActionOutput = null;
+        for (OFAction oa : ofActionList) {
+            if (oa instanceof OFActionOutput) {
+                ofActionOutput = (OFActionOutput) oa;
+                break;
+            }
+        }
+
+        if (ofActionOutput != null) {
+            int portId = ofActionOutput.getPortId();
+            PortNumber vOutPortNum = PortNumber.portNumber(portId);
+            if (ofActionList.remove(ofActionOutput)) {
+                Optional<ConnectPoint> optionalCpOut = vPorts.stream()
+                        .filter(v -> v.number().equals(vOutPortNum))
+                        .map(v -> v.realizedBy())
+                        .findFirst();
+                if (!optionalCpOut.isPresent()) {
+                    log.warn("Port {} is not realized yet, in Network {}, Device {}",
+                             vOutPortNum, networkId, sendThrough);
+                    return outboundPackets;
+                }
+
+                ConnectPoint egressPoint = optionalCpOut.get();
+                short ouPortId = (short) egressPoint.port().toLong();
+                ofActionList.add(DefaultPofActions.output((short)0, (short)0, (short)0, ouPortId).action());
+
+                TrafficTreatment.Builder ttBuilder = DefaultTrafficTreatment.builder();
+                ttBuilder.add(DefaultPofInstructions.applyActions(ofActionList));
+                for (PofInstruction pi : pofInsList) {
+                    ttBuilder.add(pi);
+                }
+
+                OutboundPacket outboundPacket = new DefaultOutboundPacket(
+                        egressPoint.deviceId(), ttBuilder.build(), context.outPacket().data());
+
+                outboundPackets.add(outboundPacket);
+
+            } else {
+                log.error("Remove OFAction error!");
+                return outboundPackets;
+            }
+
+        }
+
+        return outboundPackets;
+    }
+
     private final class InternalPacketProcessor implements PacketProcessor {
 
         @Override
@@ -251,16 +382,18 @@ public class DefaultVirtualPofPacketProvider extends AbstractVirtualProvider
                 return;
             }
 
-            DefaultVirtualPofPacketContext vContexts = virtualize(context);
+            VirtualPacketContext vContexts = virtualize(context);
 
             if (vContexts == null) {
                 return;
             }
 
-            VirtualPacketProviderService service =
-                    (VirtualPacketProviderService) providerRegistryService
-                            .getProviderService(vContexts.getNetworkId(),
-                                                VirtualPacketProvider.class);
+            if (service == null) {
+                service = (VirtualPacketProviderService) providerRegistryService
+                        .getProviderService(vContexts.networkId(),
+                                            VirtualPacketProvider.class);
+            }
+
             if (service != null) {
                 service.processPacket(vContexts);
             }
