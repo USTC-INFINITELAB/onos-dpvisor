@@ -480,7 +480,6 @@ public class NewDistributedFlowTableStore
 
     @Override
     public void setFlowTableNoBase(DeviceId deviceId, OFFlowTableResource of) {
-        log.info("@niubin setFlowTableNoBase");
         log.info("+++++ setFlowTableNoBase for device {}", deviceId.toString());
         byte base = 0;
         OFTableResource tableResource;
@@ -625,9 +624,9 @@ public class NewDistributedFlowTableStore
     }
 
     public Map<FlowTableId, Map<Integer, FlowRule>> getFlowEntries(DeviceId deviceId) {
-        log.info("+++++ getFlowEntries by deviceId: {}", deviceId);
+        //log.info("getFlowEntries by deviceId: {}", deviceId);
         if (flowEntries.get(deviceId) == null) {
-            log.info("++++ no table in deviceId: {}", deviceId);
+            //log.info("no table in deviceId: {}", deviceId);
             return null;
         } else {
             return flowEntries.get(deviceId);
@@ -636,10 +635,7 @@ public class NewDistributedFlowTableStore
 
     @Override
     public Map<Integer, FlowRule> getFlowEntries(DeviceId deviceId, FlowTableId flowTableId) {
-        log.info("+++++ getFlowEntries by deviceId: {} and tableID: {}", deviceId, flowTableId.value());
-        if (flowEntries.get(deviceId).get(flowTableId) == null) {
-            log.info("+++++ getFlowEntries by tableID: {} is null", flowTableId);
-        }
+        //log.info("getFlowEntries by deviceId: {} and tableID: {}", deviceId, flowTableId.value());
         return getFlowEntries(deviceId).get(flowTableId);
     }
 
@@ -738,7 +734,7 @@ public class NewDistributedFlowTableStore
             return flowTable.getGlobalFlowTableId(deviceOFTableType);
         }
 
-        log.info("Forwarding getGlobalTableId to {},which is the primary(master) for device {}",
+        log.trace("Forwarding getGlobalTableId to {}, which is the primary(master) for device {}",
                  master, deviceOFTableType.getDeviceId());
         return Tools.futureGetOrElse(clusterCommunicator.sendAndReceive(deviceOFTableType,
                                                                         FlowTableStoreMessageSubjects.GET_NEW_GLOBAL_TABLEID,
@@ -783,7 +779,7 @@ public class NewDistributedFlowTableStore
 
     @Override
     public void storeBatch(FlowTableBatchOperation operation) {
-//        log.info("+++++ NewDistributedFlowTableStore.storeBatch()");
+        log.info("+++++ NewDistributedFlowTableStore.storeBatch()");
         if (operation.getOperations().isEmpty()) {
             notifyDelegate(FlowTableBatchEvent.completed(
                     new FlowTableBatchRequest(operation.id(), Collections.emptySet()),
@@ -1209,15 +1205,15 @@ public class NewDistributedFlowTableStore
 
 
         private FlowTable getFlowTableInternal(DeviceId deviceId, FlowTableId flowTableId) {
-            FlowTableId tableId = flowTableId;
+            /*FlowTableId tableId = flowTableId;
             for (FlowTableId id: getFlowTables(deviceId).keySet()) {
                 if (flowTableId.value() == id.value()) {
                     tableId = id;
-                    log.info("++++ get flowTable ID: {}", tableId.value());
+                    //log.info("++++ get flowTable ID: {}", tableId.value());
                     break;
                 }
-            }
-            return getFlowTables(deviceId).get(tableId);
+            }*/
+            return getFlowTables(deviceId).get(flowTableId);
         }
 
 

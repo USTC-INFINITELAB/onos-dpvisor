@@ -428,7 +428,7 @@ public class DistributedFlowRuleStore
         }
 
         if (Objects.equals(local, master)) {
-            log.info("++++ judge whether this flowRule belongs to POF");
+            //log.info("judge whether this flowRule belongs to POF");
             if (deviceId.uri().getScheme().equals("pof")) {
                 FlowRule flowRule = operation.getOperations().get(0).target();
                 FlowTable flowTable = flowTableStore.getFlowTableInternal(flowRule.deviceId(),

@@ -118,7 +118,6 @@ public class PofTableProvider extends AbstractProvider
 
     @Activate
     public void activate(ComponentContext context) {
-        log.info("+++++ PofTableProvider started;");
         cfgService.registerProperties(getClass());
         providerService = providerRegistry.register(this);
         controller.addListener(listener);

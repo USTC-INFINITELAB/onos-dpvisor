@@ -122,13 +122,10 @@ public class PofRuleProvider extends AbstractProvider
     @Activate
     public void activate(ComponentContext context) {
 
-        log.info("before cfg service" + getClass());
         cfgService.registerProperties(getClass());
-        log.info("before providerService" + this);
         providerService = providerRegistry.register(this);
         controller.addListener(listener);
         controller.addEventListener(listener);
-        log.info("start in PofRuleProvider, 2");
 
         modified(context);
 
@@ -332,7 +329,7 @@ public class PofRuleProvider extends AbstractProvider
     @Override
     public void executeBatch(FlowRuleBatchOperation batch) {
         checkNotNull(batch);
-        log.info("+++++ PofFlowRuleProvider executeBatch()");
+        //log.info("PofFlowRuleProvider executeBatch()");
         pendingBatches.put(batch.id(), new InternalCacheEntry(batch));
 
 
@@ -352,14 +349,14 @@ public class PofRuleProvider extends AbstractProvider
                 sw.sendMsg(msg);
                 continue;
             }
-            log.info("+++++ before flowModBuilder");
+            //log.info("+++++ before flowModBuilder");
             FlowModBuilder builder =
                     FlowModBuilder.builder(fbe.target(), sw.factory(), flowTableStore,
                             Optional.empty(), Optional.of(driverService));
 
 //            DefaultFlowEntry flowEntry = (DefaultFlowEntry) fbe.target();
 
-            log.info("+++++ PofFlowRuleProvider fbe.operator() :{}", fbe.operator());
+            //log.info("+++++ PofFlowRuleProvider fbe.operator() :{}", fbe.operator());
             switch (fbe.operator()) {
                 case ADD:
                     mod = builder.buildFlowAdd();

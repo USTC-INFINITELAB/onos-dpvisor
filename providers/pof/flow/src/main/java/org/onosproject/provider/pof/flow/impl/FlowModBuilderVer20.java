@@ -120,7 +120,7 @@ public class FlowModBuilderVer20 extends FlowModBuilder {
                     log.error("ERROR in check table in buildFlowAdd2");
                     return null;
                 }
-                log.info("OFMatchX: " + matchX.toString());
+                //log.info("OFMatchX: " + matchX.toString());
                 totalFiledLength += matchX.getLength();
             }
             if (totalFiledLength != flowTable.flowTable().getKeyLength()) {
@@ -139,7 +139,7 @@ public class FlowModBuilderVer20 extends FlowModBuilder {
                                    List<OFInstruction> instructionList,
                                    short priority, boolean counterEnable) {
 
-        log.info("buildver20.addflowentry");
+        //log.info("buildver20.addflowentry");
         OFTableType tableType = flowTable.flowTable().getTableType();
         byte smallFlowTableId = flowTableStore.parseToSmallTableId(deviceID, (byte) globalTableId.value());
 
@@ -157,7 +157,7 @@ public class FlowModBuilderVer20 extends FlowModBuilder {
         newFlowEntry.setLengthU(OFFlowMod.MAXIMAL_LENGTH);
 
         flowTableStore.addFlowEntry(deviceID, flowTable.id(), this.flowRule);
-        log.info("buildver20. newflowentry:{}", newFlowEntry.toString());
+        //log.info("buildver20. newflowentry:{}", newFlowEntry.toString());
         return newFlowEntry;
     }
 
@@ -353,7 +353,7 @@ public class FlowModBuilderVer20 extends FlowModBuilder {
                     log.warn("Instruction type {} not yet implemented.", i.type());
             }
         }
-        log.info("++++ buildInstruction: return instrustions.");
+        //log.info("buildInstruction: return instrustions.");
         return ofIns;
     }
 

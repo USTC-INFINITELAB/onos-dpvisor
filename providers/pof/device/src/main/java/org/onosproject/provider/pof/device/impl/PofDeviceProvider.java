@@ -149,7 +149,6 @@ public class PofDeviceProvider extends AbstractProvider implements DeviceProvide
 
     @Activate
     public void activate(ComponentContext context) {
-        log.info("+++++PofDeviceProvider is started~");
         cfgService.registerProperties(getClass());
         providerService = providerRegistry.register(this);
         controller.addListener(listener);
@@ -190,10 +189,9 @@ public class PofDeviceProvider extends AbstractProvider implements DeviceProvide
     }
 
     private void connectInitialDevices() {
-        log.info("+++++connectInitialDevices");
         for (PofSwitch sw : controller.getSwitches()) {
             try {
-                log.info("+++++connectInitialDevices: {}", sw.getStringId());
+                log.info("connectInitialDevices: {}", sw.getStringId());
                 listener.switchAdded(new Dpid(sw.getId()));
             } catch (Exception e) {
                 log.warn("Failed initially adding {} : {}", sw.getStringId(), e.getMessage());
