@@ -134,17 +134,17 @@ public class FlowModBuilderVer20 extends FlowModBuilder {
         return addFlowEntry(deviceId, flowTable.id(), matchXList, insList, (short) flowRule().priority(), true);
     }
 
-    private OFFlowMod addFlowEntry(DeviceId deviceID, FlowTableId globalTableId,
+    private OFFlowMod addFlowEntry(DeviceId deviceID, FlowTableId tableId,
                                    List<OFMatchX> matchList,
                                    List<OFInstruction> instructionList,
                                    short priority, boolean counterEnable) {
 
         //log.info("buildver20.addflowentry");
         OFTableType tableType = flowTable.flowTable().getTableType();
-        byte smallFlowTableId = flowTableStore.parseToSmallTableId(deviceID, (byte) globalTableId.value());
+        //byte smallFlowTableId = flowTableStore.parseToSmallTableId(deviceID, (byte) globalTableId.value());
 
         OFFlowMod newFlowEntry = new OFFlowMod();
-        newFlowEntry.setTableId(smallFlowTableId);
+        newFlowEntry.setTableId((byte)tableId.value());
         newFlowEntry.setTableType(tableType);
         newFlowEntry.setIndex(flowEntryId);
 

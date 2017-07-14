@@ -122,7 +122,7 @@ public class DistributedFlowRuleStore
     private final Logger log = getLogger(getClass());
 
     private static final int MESSAGE_HANDLER_THREAD_POOL_SIZE = 8;
-    private static final int DEFAULT_MAX_BACKUP_COUNT = 2;
+    private static final int DEFAULT_MAX_BACKUP_COUNT = 0;
     private static final boolean DEFAULT_PERSISTENCE_ENABLED = false;
     private static final int DEFAULT_BACKUP_PERIOD_MILLIS = 2000;
     private static final long FLOW_RULE_STORE_TIMEOUT_MILLIS = 5000;

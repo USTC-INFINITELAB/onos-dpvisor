@@ -112,7 +112,7 @@ import static org.slf4j.LoggerFactory.getLogger;
 /**
  * Manages inventory of flow rules using a distributed state management protocol.
  */
-@Component(immediate = true, enabled = true)
+@Component(immediate = true)
 @Service
 public class NewDistributedFlowTableStore
         extends AbstractStore<FlowTableBatchEvent, FlowTableStoreDelegate>
@@ -146,31 +146,32 @@ public class NewDistributedFlowTableStore
     private boolean persistenceEnabled = DEFAULT_PERSISTENCE_ENABLED;
 
     private InternalFlowTable flowTable = new InternalFlowTable();
-    private static Map<DeviceId, Map<FlowTableId, Map<Integer, FlowRule>>>
+
+    private Map<DeviceId, Map<FlowTableId, Map<Integer, FlowRule>>>
             flowEntries = Maps.newConcurrentMap();
+
     private ConsistentMap<DeviceId,Map<FlowTableId, List<Integer>>>freeFlowEntryIdConsistentMap;
-    private Map<DeviceId,Map<FlowTableId, List<Integer>>>freeFlowEntryIdMap = new HashMap<>();
+    private Map<DeviceId,Map<FlowTableId, List<Integer>>>freeFlowEntryIdMap;
+
     private Map<FlowTableId, List<Integer>>freeFlowEntryIdTmpMap = new HashMap<>();
-    private ConsistentMap<DeviceId,Map<FlowTableId, Integer>>flowEntryCountConsistentMap;
-    private Map<DeviceId,Map<FlowTableId, Integer>>flowEntryCountMap = new HashMap<>();
+
+    private ConsistentMap<DeviceId,Map<FlowTableId, Integer>> flowEntryCountConsistentMap;
+    private Map<DeviceId,Map<FlowTableId, Integer>> flowEntryCountMap;
 
     private Map<FlowTableId, Integer> flowEntryCountTmpMap = new HashMap<>();
+
     private ConsistentMap<DeviceId, Map<OFTableType,Byte>>flowTableNoBaseConsistentMap;
+    private Map<DeviceId,Map<OFTableType, Byte>>flowTableNoBaseMap;
 
-    private Map<DeviceId,Map<OFTableType, Byte>>flowTableNoBaseMap = new HashMap<>();
     private ConsistentMap<DeviceId, Map<OFTableType, Byte>>flowTableNoConsistentMap;
+    private Map<DeviceId, Map<OFTableType, Byte>> flowTableNoMap;
 
-    private Map<DeviceId, Map<OFTableType, Byte>> flowTableNoMap = new HashMap<>();
     private ConsistentMap<DeviceId, Map<OFTableType, List<Byte>>> freeFlowTableIdListConsistentMap;
+    private Map<DeviceId, Map<OFTableType, List<Byte>>> freeFlowTableIdListMap;
 
+    //private ConsistentMap<DeviceId, Map<FlowTableId, StoredFlowTableEntry>>flowTablesConsistMap;
+    private Map<DeviceId, Map<FlowTableId, StoredFlowTableEntry>> flowTablesMap = Maps.newConcurrentMap();
 
-    private Map<DeviceId, Map<OFTableType, List<Byte>>> freeFlowTableIdListMap = new HashMap<>();
-
-
-
-    private ConsistentMap<DeviceId, Map<FlowTableId, StoredFlowTableEntry>>flowTablesConsistMap;
-    private Map<DeviceId, Map<FlowTableId, StoredFlowTableEntry>>
-            flowTablesMap = new HashMap<>();
     private Map<FlowTableId, StoredFlowTableEntry>flowTablesTmpMap = new HashMap<>();
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
@@ -212,22 +213,12 @@ public class NewDistributedFlowTableStore
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected StorageService storageService;
 
-//    protected static final StoreSerializer SERIALIZER = new KryoSerializer() {
-//        @Override
-//        protected void setupKryoPool() {
-//            serializerPool = KryoNamespace.newBuilder()
-//                    .register(DistributedStoreSerializers.STORE_COMMON)
-//                    .nextId(DistributedStoreSerializers.STORE_CUSTOM_BEGIN)
-//                    .build();
-//        }
-//    };
     protected static final Serializer SERIALIZER = Serializer.using(
             KryoNamespace.newBuilder()
                     .register(DistributedStoreSerializers.STORE_COMMON)
                     .nextId(DistributedStoreSerializers.STORE_CUSTOM_BEGIN)
                     .build()
     );
-
 
     protected static final KryoNamespace.Builder SERIALIZER_BUILDER = KryoNamespace.newBuilder()
             .register(KryoNamespaces.API)
@@ -273,41 +264,43 @@ public class NewDistributedFlowTableStore
                 .withRelaxedReadConsistency()
                 .build();
         freeFlowEntryIdMap = freeFlowEntryIdConsistentMap.asJavaMap();
+
         flowEntryCountConsistentMap = storageService.<DeviceId,Map<FlowTableId,Integer>>consistentMapBuilder()
                 .withName("onos-freeflow-count")
                 .withSerializer(SERIALIZER)
                 .withRelaxedReadConsistency()
                 .build();
         flowEntryCountMap=flowEntryCountConsistentMap.asJavaMap();
+
         flowTableNoBaseConsistentMap = storageService.<DeviceId,Map<OFTableType,Byte>>consistentMapBuilder()
                 .withName("onos-flowtable-nobase")
                 .withSerializer(SERIALIZER)
                 .withRelaxedReadConsistency()
                 .build();
         flowTableNoBaseMap=flowTableNoBaseConsistentMap.asJavaMap();
+
         flowTableNoConsistentMap = storageService.<DeviceId,Map<OFTableType,Byte>>consistentMapBuilder()
                 .withName("onos-flowtable-no")
                 .withSerializer(SERIALIZER)
                 .withRelaxedReadConsistency()
                 .build();
         flowTableNoMap =flowTableNoConsistentMap.asJavaMap();
+
         freeFlowTableIdListConsistentMap = storageService.<DeviceId,Map<OFTableType,List<Byte>>>consistentMapBuilder()
                 .withName("onos-flowtable-list")
                 .withSerializer(SERIALIZER)
                 .withRelaxedReadConsistency()
                 .build();
         freeFlowTableIdListMap = freeFlowTableIdListConsistentMap.asJavaMap();
-        flowTablesConsistMap=storageService.<DeviceId,Map<FlowTableId,StoredFlowTableEntry>>consistentMapBuilder()
+
+        /*flowTablesConsistMap=storageService.<DeviceId,Map<FlowTableId,StoredFlowTableEntry>>consistentMapBuilder()
                 .withName("onos-flowtables-store")
                 .withRelaxedReadConsistency()
                 .withSerializer(SERIALIZER)
                 .build();
-        flowTablesMap=flowTablesConsistMap.asJavaMap();
-
-
+        flowTablesMap=flowTablesConsistMap.asJavaMap();*/
 
         deviceTableStats.addListener(tableStatsListener);
-
 
         logConfig("Started");
     }
