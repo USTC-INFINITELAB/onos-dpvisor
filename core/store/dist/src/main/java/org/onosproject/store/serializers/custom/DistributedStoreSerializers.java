@@ -72,7 +72,6 @@ public final class DistributedStoreSerializers {
             .register(OFMatch.class)
             .register(DeviceOFTableType.class)
             .register(DeviceTableId.class)
-            .register(DefaultFlowTableEntry.class)
             .register(FlowTableEntry.FlowTableState.class)
             .register(ConsistentMapBackedJavaMap.class)
             .build();
