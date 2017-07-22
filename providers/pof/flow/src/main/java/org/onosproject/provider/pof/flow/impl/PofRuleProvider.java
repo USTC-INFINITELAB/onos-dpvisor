@@ -184,10 +184,10 @@ public class PofRuleProvider extends AbstractProvider
         return CacheBuilder.newBuilder()
                 .expireAfterWrite(10, TimeUnit.SECONDS)
                 .removalListener((RemovalNotification<Long, InternalCacheEntry> notification) -> {
-                    if (notification.getCause() == RemovalCause.EXPIRED) {
+                    /*if (notification.getCause() == RemovalCause.EXPIRED) {
                         providerService.batchOperationCompleted(notification.getKey(),
                                 notification.getValue().failedCompletion());
-                    }
+                    }*/
                 }).build();
     }
 
@@ -354,8 +354,6 @@ public class PofRuleProvider extends AbstractProvider
                     FlowModBuilder.builder(fbe.target(), sw.factory(), flowTableStore,
                             Optional.empty(), Optional.of(driverService));
 
-//            DefaultFlowEntry flowEntry = (DefaultFlowEntry) fbe.target();
-
             //log.info("+++++ PofFlowRuleProvider fbe.operator() :{}", fbe.operator());
             switch (fbe.operator()) {
                 case ADD:
@@ -378,21 +376,13 @@ public class PofRuleProvider extends AbstractProvider
                     continue;
             }
             sw.sendMsg(mod);
-/*            providerService
-                    .batchOperationCompleted(batch.id(),
-                            pendingBatches.getIfPresent(batch.id()).completed());*/
-
         }
-        //wenjian
-        /*
-        OFBarrierRequest.Builder builder = sw.factory().buildBarrierRequest()
-                .setXid(batch.id());
-        sw.sendMsg(builder.build());
-        */
-        //wenjian
-//        List<OFMessage> ofbr = new ArrayList<OFMessage>(1);
-//        ofbr.add(sw.factory().getOFMessage(OFType.BARRIER_REQUEST));
-//        sw.sendMsg(ofbr);
+
+        //In pof, no BARRIER_REPLY yet
+        CompletedBatchOperation op =
+                new CompletedBatchOperation(true, Collections.emptySet(),
+                                            batch.deviceId());
+        providerService.batchOperationCompleted(batch.id(), op);
 
     }
 
