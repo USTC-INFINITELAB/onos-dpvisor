@@ -91,7 +91,7 @@ import static org.slf4j.LoggerFactory.getLogger;
  * This virtualize and de-virtualize virtual flow rules into physical flow rules.
  * {@link org.onosproject.net.flow.FlowRule}
  */
-@Component(immediate = true)
+@Component(immediate = true, enabled = false)
 @Service
 public class DefaultVirtualFlowRuleProvider extends AbstractVirtualProvider
         implements VirtualFlowRuleProvider {
