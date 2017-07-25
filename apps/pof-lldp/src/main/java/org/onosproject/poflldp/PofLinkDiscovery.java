@@ -187,6 +187,9 @@ public class PofLinkDiscovery {
         ofFlowTable.setTableSize(128);
         ofFlowTable.setTableType(OFTableType.OF_MM_TABLE);
         ofFlowTable.setMatchFieldList(match20List);
+        ofFlowTable.setKeyLength((short) 16);
+        ofFlowTable.setMatchFieldNum((byte)match20List.size());
+        ofFlowTable.setCommand(null);
 
         FlowTable.Builder flowTable = DefaultFlowTable.builder()
                 .withFlowTable(ofFlowTable)
@@ -226,6 +229,9 @@ public class PofLinkDiscovery {
         ofFlowTable.setTableSize(128);
         ofFlowTable.setTableType(OFTableType.OF_MM_TABLE);
         ofFlowTable.setMatchFieldList(match20List);
+        ofFlowTable.setKeyLength((short)8);
+        ofFlowTable.setMatchFieldNum((byte)match20List.size());
+        ofFlowTable.setCommand(null);
 
         FlowTable.Builder flowTable = DefaultFlowTable.builder()
                 .withFlowTable(ofFlowTable)
@@ -265,6 +271,9 @@ public class PofLinkDiscovery {
         ofFlowTable.setTableSize(128);
         ofFlowTable.setTableType(OFTableType.OF_MM_TABLE);
         ofFlowTable.setMatchFieldList(match20List);
+        ofFlowTable.setKeyLength((short)8);
+        ofFlowTable.setMatchFieldNum((byte)match20List.size());
+        ofFlowTable.setCommand(null);
 
         FlowTable.Builder flowTable = DefaultFlowTable.builder()
                 .withFlowTable(ofFlowTable)
