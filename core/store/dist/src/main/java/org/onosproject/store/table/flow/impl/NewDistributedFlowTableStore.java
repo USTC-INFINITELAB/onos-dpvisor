@@ -169,7 +169,7 @@ public class NewDistributedFlowTableStore
     private ConsistentMap<DeviceId, Map<OFTableType, List<Byte>>> freeFlowTableIdListConsistentMap;
     private Map<DeviceId, Map<OFTableType, List<Byte>>> freeFlowTableIdListMap = Maps.newConcurrentMap();
 
-    private ConsistentMap<DeviceId, Map<FlowTableId, StoredFlowTableEntry>>flowTablesConsistMap;
+    //private ConsistentMap<DeviceId, Map<FlowTableId, StoredFlowTableEntry>>flowTablesConsistMap;
     private Map<DeviceId, Map<FlowTableId, StoredFlowTableEntry>> flowTablesMap = Maps.newConcurrentMap();
 
     private Map<FlowTableId, StoredFlowTableEntry>flowTablesTmpMap = new HashMap<>();
@@ -293,12 +293,12 @@ public class NewDistributedFlowTableStore
                 .build();
         freeFlowTableIdListMap = freeFlowTableIdListConsistentMap.asJavaMap();
 
-        flowTablesConsistMap=storageService.<DeviceId,Map<FlowTableId,StoredFlowTableEntry>>consistentMapBuilder()
+        /*flowTablesConsistMap=storageService.<DeviceId,Map<FlowTableId,StoredFlowTableEntry>>consistentMapBuilder()
                 .withName("onos-flowtables-store")
                 .withRelaxedReadConsistency()
                 .withSerializer(SERIALIZER)
                 .build();
-        flowTablesMap=flowTablesConsistMap.asJavaMap();
+        flowTablesMap=flowTablesConsistMap.asJavaMap();*/
 
         deviceTableStats.addListener(tableStatsListener);
 
