@@ -319,7 +319,7 @@ public class DefaultGroupHandler {
                 .addTreatment(tBuilder.build())
                 .withMeta(metabuilder.build())
                 .fromApp(appId);
-        log.info("{} in device {}: Adding Bucket with Port {} to next object id {}",
+        log.debug("{} in device {}: Adding Bucket with Port {} to next object id {}",
                  (retry) ? "retry-addToHash" : "addToHash",
                          deviceId, outport, nextId);
 
@@ -1041,7 +1041,7 @@ public class DefaultGroupHandler {
 
         @Override
         public void run() {
-            log.info("RETRY Hash buckets for linkup: {}", link);
+            log.debug("RETRY Hash buckets for linkup: {}", link);
             Set<NeighborSet> nsSet = nsNextObjStore.keySet()
                     .stream()
                     .filter(nsStoreEntry -> nsStoreEntry.deviceId().equals(deviceId))

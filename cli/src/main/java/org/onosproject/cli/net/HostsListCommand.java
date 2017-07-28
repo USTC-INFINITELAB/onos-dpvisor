@@ -38,10 +38,10 @@ import static com.google.common.collect.Lists.newArrayList;
 public class HostsListCommand extends AbstractShellCommand {
 
     private static final String FMT =
-            "id=%s, mac=%s, location=%s, vlan=%s, ip(s)=%s%s, configured=%s";
+            "id=%s, mac=%s, locations=%s, vlan=%s, ip(s)=%s%s, provider=%s:%s, configured=%s";
 
     private static final String FMT_SHORT =
-            "id=%s, mac=%s, location=%s, vlan=%s, ip(s)=%s";
+            "id=%s, mac=%s, locations=%s, vlan=%s, ip(s)=%s";
 
     @Option(name = "-s", aliases = "--short", description = "Show short output only",
             required = false, multiValued = false)
@@ -94,6 +94,7 @@ public class HostsListCommand extends AbstractShellCommand {
             print(FMT, host.id(), host.mac(),
                   host.locations(),
                   host.vlan(), host.ipAddresses(), annotations(host.annotations()),
+                  host.providerId().scheme(), host.providerId().id(),
                   host.configured());
         }
     }

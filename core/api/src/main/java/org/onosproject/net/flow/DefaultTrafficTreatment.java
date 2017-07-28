@@ -35,6 +35,8 @@ import org.onosproject.net.meter.MeterId;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
+import org.onosproject.net.pi.runtime.PiTableAction;
+
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
@@ -246,6 +248,7 @@ public final class DefaultTrafficTreatment implements TrafficTreatment {
                 case L4MODIFICATION:
                 case POFINSTRUCTION:
                 case POFACTION:
+                case PROTOCOL_INDEPENDENT:
                 case EXTENSION:
                     current.add(instruction);
                     break;
@@ -472,6 +475,11 @@ public final class DefaultTrafficTreatment implements TrafficTreatment {
         @Override
         public Builder setArpOp(short op) {
             return add(Instructions.modL3ArpOp(op));
+        }
+
+        @Override
+        public Builder piTableAction(PiTableAction piTableAction) {
+            return add(Instructions.piTableAction(piTableAction));
         }
 
         @Override

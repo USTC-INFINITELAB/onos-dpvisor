@@ -36,6 +36,7 @@ import org.onosproject.cfg.ComponentConfigService;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
 import org.onosproject.event.Event;
+import org.onosproject.incubator.net.config.basics.InterfaceConfig;
 import org.onosproject.incubator.net.config.basics.McastConfig;
 import org.onosproject.incubator.net.intf.Interface;
 import org.onosproject.incubator.net.intf.InterfaceService;
@@ -357,12 +358,14 @@ public class SegmentRoutingManager implements SegmentRoutingService {
                                       "requestInterceptsEnabled", "false");
         compCfgService.preSetProperty("org.onosproject.incubator.net.neighbour.impl.NeighbourResolutionManager",
                                       "requestInterceptsEnabled", "false");
-        compCfgService.preSetProperty("org.onosproject.dhcprelay.DhcpRelay",
+        compCfgService.preSetProperty("org.onosproject.dhcprelay.DhcpRelayManager",
                                       "arpEnabled", "false");
         compCfgService.preSetProperty("org.onosproject.net.host.impl.HostManager",
                                       "greedyLearningIpv6", "true");
         compCfgService.preSetProperty("org.onosproject.routing.cpr.ControlPlaneRedirectManager",
                                       "forceUnprovision", "true");
+        compCfgService.preSetProperty("org.onosproject.incubator.store.routing.impl.RouteStoreImpl",
+                                      "distributed", "true");
 
         processor = new InternalPacketProcessor();
         linkListener = new InternalLinkListener();
@@ -1052,6 +1055,12 @@ public class SegmentRoutingManager implements SegmentRoutingService {
 
     private void processDeviceAdded(Device device) {
         log.info("** DEVICE ADDED with ID {}", device.id());
+
+        // NOTE: Punt ARP/NDP even when the device is not configured.
+        //       Host learning without network config is required for CORD config generator.
+        routingRulePopulator.populateIpPunts(device.id());
+        routingRulePopulator.populateArpNdpPunts(device.id());
+
         if (deviceConfiguration == null || !deviceConfiguration.isConfigured(device.id())) {
             log.warn("Device configuration uploading. Device {} will be "
                     + "processed after config completes.", device.id());
@@ -1247,7 +1256,7 @@ public class SegmentRoutingManager implements SegmentRoutingService {
                                               tunnelHandler, policyStore);
 
             for (Device device : deviceService.getDevices()) {
-                processDeviceAddedInternal(device.id());
+                processDeviceAdded(device);
             }
 
             defaultRoutingHandler.startPopulationProcess();
@@ -1260,11 +1269,24 @@ public class SegmentRoutingManager implements SegmentRoutingService {
             if (event.configClass().equals(SegmentRoutingDeviceConfig.class)) {
                 switch (event.type()) {
                     case CONFIG_ADDED:
-                        log.info("Segment Routing Config added.");
+                        log.info("Segment Routing Device Config added for {}", event.subject());
                         configureNetwork();
                         break;
                     case CONFIG_UPDATED:
-                        log.info("Segment Routing Config updated.");
+                        log.info("Segment Routing Config updated for {}", event.subject());
+                        // TODO support dynamic configuration
+                        break;
+                    default:
+                        break;
+                }
+            } else if (event.configClass().equals(InterfaceConfig.class)) {
+                switch (event.type()) {
+                    case CONFIG_ADDED:
+                        log.info("Interface Config added for {}", event.subject());
+                        configureNetwork();
+                        break;
+                    case CONFIG_UPDATED:
+                        log.info("Interface Config updated for {}", event.subject());
                         // TODO support dynamic configuration
                         break;
                     default:

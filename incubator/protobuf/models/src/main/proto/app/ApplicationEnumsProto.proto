@@ -1,0 +1,22 @@
+syntax = "proto3";
+option java_package = "org.onosproject.grpc.app.models";
+
+package app;
+
+enum ApplicationStateProto {
+    // Indicates that application has been installed, but is not running.
+    INSTALLED = 0;
+    // Indicates that application is active.
+    ACTIVE = 1;
+}
+
+enum ApplicationRoleProto {
+    // Indicates that an application has an ADMIN role.
+    ADMIN = 0;
+    // Indicates that an application has a USER role.
+    USER = 1;
+    // Indicates that an application role has not been specified.
+    UNSPECIFIED = 2;
+
+    // More useful roles may be defined...
+}

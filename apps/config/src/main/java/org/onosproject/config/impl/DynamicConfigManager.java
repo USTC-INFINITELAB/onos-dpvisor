@@ -15,14 +15,16 @@
  */
 package org.onosproject.config.impl;
 
-import com.google.common.annotations.Beta;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.apache.felix.scr.annotations.Service;
-import org.onlab.util.KryoNamespace;
+import org.onosproject.config.ResourceIdParser;
+import org.onosproject.config.RpcExecutor;
+import org.onosproject.config.RpcMessageId;
+import org.onosproject.event.AbstractListenerManager;
 import org.onosproject.config.DynamicConfigEvent;
 import org.onosproject.config.DynamicConfigListener;
 import org.onosproject.config.DynamicConfigService;
@@ -30,64 +32,42 @@ import org.onosproject.config.DynamicConfigStore;
 import org.onosproject.config.DynamicConfigStoreDelegate;
 import org.onosproject.config.FailedException;
 import org.onosproject.config.Filter;
-import org.onosproject.store.serializers.KryoNamespaces;
-import org.onosproject.store.service.ConsistentMap;
-import org.onosproject.store.service.StorageService;
-import org.onosproject.store.service.Serializer;
-import org.onosproject.store.service.Versioned;
-import org.onosproject.yang.model.RpcCaller;
-import org.onosproject.yang.model.RpcCommand;
-import org.onosproject.yang.model.RpcHandler;
 import org.onosproject.yang.model.RpcInput;
 import org.onosproject.yang.model.RpcOutput;
 import org.onosproject.yang.model.DataNode;
 import org.onosproject.yang.model.ResourceId;
-import org.onosproject.event.AbstractListenerManager;
-import org.slf4j.Logger;
+import org.onosproject.yang.model.RpcRegistry;
+import org.onosproject.yang.model.RpcService;
 
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+
+import org.slf4j.Logger;
 import static org.slf4j.LoggerFactory.getLogger;
 
 /**
- * Demo application to use the DynamicConfig Service and DynamicConfigStore.
+ * Implementation of the Dynamic Config Service.
  *
  */
-@Beta
 @Component(immediate = true)
 @Service
 public class DynamicConfigManager
         extends AbstractListenerManager<DynamicConfigEvent, DynamicConfigListener>
-        implements DynamicConfigService {
+        implements DynamicConfigService, RpcRegistry {
     private final Logger log = getLogger(getClass());
     private final DynamicConfigStoreDelegate storeDelegate = new InternalStoreDelegate();
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected DynamicConfigStore store;
-    private ConsistentMap<RpcCommand, RpcHandler> handlerRegistry;
-    private ConsistentMap<Integer, RpcCaller> callerRegistry;
-    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
-    protected StorageService storageService;
+    private ConcurrentHashMap<String, RpcService> handlerRegistry = new ConcurrentHashMap<>();
 
     @Activate
     public void activate() {
         store.setDelegate(storeDelegate);
         eventDispatcher.addSink(DynamicConfigEvent.class, listenerRegistry);
-        log.info("Started");
-        KryoNamespace.Builder kryoBuilder = new KryoNamespace.Builder()
-                .register(KryoNamespaces.BASIC)
-                .register(Class.class)
-                .register(RpcHandler.class)
-                .register(RpcCaller.class)
-                .register(RpcCommand.class)
-                .register(ResourceId.class);
-        callerRegistry = storageService.<Integer, RpcCaller>consistentMapBuilder()
-                .withSerializer(Serializer.using(kryoBuilder.build()))
-                .withName("config-object-store")
-                .withRelaxedReadConsistency()
-                .build();
-        handlerRegistry = storageService.<RpcCommand, RpcHandler>consistentMapBuilder()
-                .withSerializer(Serializer.using(kryoBuilder.build()))
-                .withName("config-object-store")
-                .withRelaxedReadConsistency()
-                .build();
         log.info("Started");
     }
 
@@ -95,10 +75,11 @@ public class DynamicConfigManager
     public void deactivate() {
         store.unsetDelegate(storeDelegate);
         eventDispatcher.removeSink(DynamicConfigEvent.class);
+        handlerRegistry.clear();
         log.info("Stopped");
     }
 
-    public void createNodeRecursive(ResourceId path, DataNode node) {
+    public void createNode(ResourceId path, DataNode node) {
         store.addNode(path, node).join();
     }
 
@@ -111,10 +92,6 @@ public class DynamicConfigManager
     }
 
     public void deleteNode(ResourceId path) {
-        throw new FailedException("Not yet implemented");
-    }
-
-    public void deleteNodeRecursive(ResourceId path) {
         store.deleteNodeRecursive(path).join();
     }
 
@@ -122,42 +99,63 @@ public class DynamicConfigManager
         throw new FailedException("Not yet implemented");
     }
 
-    public Integer getNumberOfChildren(ResourceId path, Filter filter) {
-        throw new FailedException("Not yet implemented");
-    }
-
     public Boolean nodeExist(ResourceId path) {
         return store.nodeExist(path).join();
     }
 
-    public void registerHandler(RpcHandler handler, RpcCommand command) {
-        handlerRegistry.put(command, handler);
-    }
-
-    public void unRegisterHandler(RpcHandler handler, RpcCommand command) {
-        Versioned<RpcHandler> ret = handlerRegistry.get(command);
-        if ((ret == null) || (ret.value() == null)) {
-            throw new FailedException("No registered handler found, cannot unregister");
+    public Set<RpcService> getRpcServices() {
+        Set<RpcService> res = new HashSet();
+        for (Map.Entry<String, RpcService> e : handlerRegistry.entrySet()) {
+            res.add(e.getValue());
         }
-        handlerRegistry.remove(command);
+        return res;
     }
 
-    public void invokeRpc(RpcCaller caller, Integer msgId, RpcCommand command, RpcInput input) {
-        callerRegistry.put(msgId, caller);
-        Versioned<RpcHandler> hndlr = handlerRegistry.get(command);
-        if ((hndlr == null) || (hndlr.value() == null)) {
+    public RpcService getRpcService(Class<? extends RpcService> intfc) {
+        return handlerRegistry.get(intfc.getSimpleName());
+    }
+
+    public void registerRpcService(RpcService handler) {
+        for (Class<?> intfc : handler.getClass().getInterfaces()) {
+            if (RpcService.class.isAssignableFrom(intfc)) {
+                handlerRegistry.put(intfc.getSimpleName(), handler);
+            }
+        }
+    }
+
+    public void unregisterRpcService(RpcService handler) {
+        for (Class<?> intfc : handler.getClass().getInterfaces()) {
+            if (RpcService.class.isAssignableFrom(intfc)) {
+                String key = intfc.getSimpleName();
+                if (handlerRegistry.get(key) == null) {
+                    throw new FailedException("No registered handler found, cannot unregister");
+                }
+                handlerRegistry.remove(key);
+            }
+        }
+    }
+
+    private int getSvcId(RpcService handler, String srvc) {
+        Class<?>[] intfcs = handler.getClass().getInterfaces();
+        for (int i = 0; i < intfcs.length; i++) {
+            if (intfcs[i].getSimpleName().compareTo(srvc) == 0) {
+                return i;
+            }
+        }
+        throw new FailedException("No handler found, cannot invoke");
+    }
+
+    public CompletableFuture<RpcOutput> invokeRpc(ResourceId id, RpcInput input) {
+        String[] ctxt = ResourceIdParser.getService(id);
+        RpcService handler = handlerRegistry.get(ctxt[0]);
+        if (handler == null) {
             throw new FailedException("No registered handler found, cannot invoke");
         }
-        hndlr.value().executeRpc(msgId, command, input);
+        return CompletableFuture.supplyAsync(
+                new RpcExecutor(handler, getSvcId(handler, ctxt[0]), ctxt[1], RpcMessageId.generate(), input),
+                Executors.newSingleThreadExecutor());
     }
 
-    public void rpcResponse(Integer msgId, RpcOutput output) {
-        Versioned<RpcCaller> caller = callerRegistry.get(msgId);
-        if (caller.value() == null) {
-            throw new FailedException("No registered receiver found, cannot relay response");
-        }
-        caller.value().receiveResponse(msgId, output);
-    }
     /**
      * Auxiliary store delegate to receive notification about changes in the store.
      */

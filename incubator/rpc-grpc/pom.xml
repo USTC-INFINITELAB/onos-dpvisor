@@ -34,7 +34,7 @@
         <onos.app.title>ONOS gRPC API</onos.app.title>
         <onos.app.requires>
             org.onosproject.incubator.rpc,
-            org.onosproject.incubator.protobuf,
+            org.onosproject.incubator.protobuf.models,
             org.onosproject.incubator.grpc
         </onos.app.requires>
     </properties>
@@ -96,7 +96,7 @@
 
         <dependency>
             <groupId>org.onosproject</groupId>
-            <artifactId>onos-incubator-protobuf</artifactId>
+            <artifactId>onos-incubator-protobuf-models</artifactId>
             <version>${project.version}</version>
         </dependency>
 

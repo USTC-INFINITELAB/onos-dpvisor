@@ -21,7 +21,9 @@ import org.onosproject.net.flow.criteria.ExtensionSelector;
 
 /**
  * Interface for encode and decode extension selector.
+ * @deprecated 1.11.0 Loon use interface under core/api/net/flow.
  */
+@Deprecated
 public interface ExtensionSelectorCodec extends HandlerBehaviour {
 
     /**

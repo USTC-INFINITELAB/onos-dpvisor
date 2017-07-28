@@ -34,6 +34,7 @@
         <module>roadm</module>
         <module>faultmanagement</module>
         <module>fwd</module>
+        <module>packet-stats</module>
         <module>mobility</module>
         <module>proxyarp</module>
         <module>sdnip</module>
@@ -85,6 +86,7 @@
         <module>mappingmanagement</module>
         <module>network-troubleshoot</module>
         <module>restconf</module>
+        <module>yang</module>
     </modules>
 
     <properties>

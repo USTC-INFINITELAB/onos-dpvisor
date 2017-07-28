@@ -878,9 +878,6 @@ public class DefaultRoutingHandler {
      * @param deviceId Switch ID to set the rules
      */
     public void populatePortAddressingRules(DeviceId deviceId) {
-        rulePopulator.populateIpPunts(deviceId);
-        rulePopulator.populateArpNdpPunts(deviceId);
-
         // Although device is added, sometimes device store does not have the
         // ports for this device yet. It results in missing filtering rules in the
         // switch. We will attempt it a few times. If it still does not work,
@@ -1040,7 +1037,7 @@ public class DefaultRoutingHandler {
 
         @Override
         public void run() {
-            log.info("RETRY FILTER ATTEMPT {} ** dev:{}", ++counter, devId);
+            log.debug("RETRY FILTER ATTEMPT {} ** dev:{}", ++counter, devId);
             PortFilterInfo thisRun = rulePopulator.populateVlanMacFilters(devId);
             boolean sameResult = prevRun.equals(thisRun);
             log.debug("dev:{} prevRun:{} thisRun:{} sameResult:{}", devId, prevRun,

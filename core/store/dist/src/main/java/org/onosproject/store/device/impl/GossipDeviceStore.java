@@ -276,6 +276,11 @@ public class GossipDeviceStore
     }
 
     @Override
+    public int getAvailableDeviceCount() {
+        return availableDevices.size();
+    }
+
+    @Override
     public Iterable<Device> getDevices() {
         return Collections.unmodifiableCollection(devices.values());
     }
@@ -472,6 +477,9 @@ public class GossipDeviceStore
             }
 
             Timestamp lastTimestamp = primDescs.getLatestTimestamp();
+            if (lastTimestamp == null) {
+                lastTimestamp = deviceClockService.getTimestamp(deviceId);
+            }
             if (timestamp.compareTo(lastTimestamp) <= 0) {
                 // outdated event ignore
                 return null;
