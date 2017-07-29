@@ -120,9 +120,9 @@ public class DefaultVirtualPofPacketProvider extends AbstractVirtualProvider
         providerRegistryService.registerProvider(this);
         vnaService.addListener(virtualNetListener);
 
-        processor = new InternalPacketProcessor();
+       /* processor = new InternalPacketProcessor();
         packetService.addProcessor(processor, PacketProcessor.director(2));
-        log.info("Packet processor {} for virtual network is added.", processor.getClass().getName());
+        log.info("Packet processor {} for virtual network is added.", processor.getClass().getName());*/
 
         log.info("Started");
     }
@@ -132,9 +132,9 @@ public class DefaultVirtualPofPacketProvider extends AbstractVirtualProvider
         providerRegistryService.unregisterProvider(this);
         vnaService.removeListener(virtualNetListener);
 
-        packetService.removeProcessor(processor);
+        /*packetService.removeProcessor(processor);
         log.info("Packet processor {} for virtual network is removed.", processor.getClass().getName());
-        processor = null;
+        processor = null;*/
 
         log.info("Stopped");
     }
@@ -388,11 +388,15 @@ public class DefaultVirtualPofPacketProvider extends AbstractVirtualProvider
                 return;
             }
 
-            if (service == null) {
+            /*if (service == null) {
                 service = (VirtualPacketProviderService) providerRegistryService
                         .getProviderService(vContexts.networkId(),
                                             VirtualPacketProvider.class);
-            }
+            }*/
+
+            service = (VirtualPacketProviderService) providerRegistryService
+                    .getProviderService(vContexts.networkId(),
+                                        VirtualPacketProvider.class);
 
             if (service != null) {
                 service.processPacket(vContexts);
