@@ -28,7 +28,8 @@ import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
 import org.apache.felix.scr.annotations.Property;
 import org.apache.felix.scr.annotations.Service;
-import org.onlab.util.NewConcurrentHashMap;
+//import org.onlab.util.NewConcurrentHashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import org.onosproject.cluster.NodeId;
 import org.onosproject.floodlightpof.protocol.table.OFFlowTableResource;
 import org.onosproject.floodlightpof.protocol.table.OFTableResource;
@@ -171,7 +172,7 @@ public class SimpleFlowTableStore
 
     /**
      * Initialize flowtables and flowentries store.
-     * */
+     */
     @Override
     public void initializeSwitchStore(DeviceId deviceId) {
 
@@ -213,9 +214,9 @@ public class SimpleFlowTableStore
         return sum.get();
     }
 
-    private static NewConcurrentHashMap<FlowTableId, List<StoredFlowTableEntry>> lazyEmptyFlowTable() {
-        return NewConcurrentHashMap.<FlowTableId, List<StoredFlowTableEntry>>ifNeeded();
-    }
+//    private static ConcurrentMap<FlowTableId, List<StoredFlowTableEntry>> lazyEmptyFlowTable() {
+//        return ConcurrenthMap.<FlowTableId, List<StoredFlowTableEntry>>ifNeeded();
+//    }
 
     /**
      * Returns the flow table for specified device.
@@ -224,8 +225,9 @@ public class SimpleFlowTableStore
      * @return Map representing Flow Table of given device.
      */
     private ConcurrentMap<FlowTableId, List<StoredFlowTableEntry>> getFlowTable(DeviceId deviceId) {
-        return createIfAbsentUnchecked(flowTables,
-                deviceId, lazyEmptyFlowTable());
+//        return createIfAbsentUnchecked(flowTables,
+//                deviceId, lazyEmptyFlowTable());
+        return flowTables.computeIfAbsent(deviceId, k -> new ConcurrentHashMap<>());
     }
 
     private List<StoredFlowTableEntry> getFlowTables(DeviceId deviceId, FlowTableId flowId) {
@@ -269,7 +271,7 @@ public class SimpleFlowTableStore
                 return;
             }
             for (byte tableType = 0; tableType < OFTableType.OF_MAX_TABLE_TYPE.getValue(); tableType++) {
-                tableResource = flowTableReourceMap.get(OFTableType.values()[ tableType ]);
+                tableResource = flowTableReourceMap.get(OFTableType.values()[tableType]);
                 noMap.put(OFTableType.values()[tableType], base);
                 noBaseMap.put(OFTableType.values()[tableType], base);
                 freeIDListMap.put(OFTableType.values()[tableType], new ArrayList<Byte>());
@@ -409,6 +411,7 @@ public class SimpleFlowTableStore
         }
         return newFlowEntryId;
     }
+
     @Override
     public Map<OFTableType, Byte> getFlowTableNoBaseMap(DeviceId deviceId) {
         return this.flowTableNoBaseMap.get(deviceId);
@@ -544,7 +547,6 @@ public class SimpleFlowTableStore
     }
 
 
-
     @Override
     public void storeFlowTable(FlowTable rule) {
         storeFlowTableInternal(rule);
@@ -566,7 +568,6 @@ public class SimpleFlowTableStore
             existing.add(f);
         }
     }
-
 
 
     @Override
