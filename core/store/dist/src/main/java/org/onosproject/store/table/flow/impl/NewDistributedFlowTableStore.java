@@ -433,20 +433,22 @@ public class NewDistributedFlowTableStore
     public void initializeSwitchStore(DeviceId deviceId) {
 
         log.info("initializeSwitchStore for device: {}", deviceId);
-        Map<FlowTableId, Integer> tcount = new ConcurrentHashMap<>();
-        tcount.put(FlowTableId.valueOf(0),0);
-        flowEntryCountMap.putIfAbsent(deviceId, tcount);
-        List<Integer> ids = new ArrayList<>();
-        Map<FlowTableId, List<Integer>> tids = new ConcurrentHashMap<>();
-        freeFlowEntryIdMap.putIfAbsent(deviceId, tids);//initialization map all is null
+        if (flowEntryCountMap.containsKey(deviceId)) {
+            //TODO nothing
+        } else {
 
-        Map<FlowTableId, Map<Integer, FlowRule>> tfs = new ConcurrentHashMap<>();//the max size of table no is 128
-        for ( int i = 0; i< 128; i++) {
-
-            Map<Integer, FlowRule>emptyTmp=new HashMap<>();
-            tfs.putIfAbsent(new FlowTableId(i),emptyTmp);
+            Map<FlowTableId, Integer> tcount = new ConcurrentHashMap<>();
+            tcount.put(FlowTableId.valueOf(0),0);
+            flowEntryCountMap.putIfAbsent(deviceId, tcount);
         }
-        flowEntries.putIfAbsent(deviceId, tfs);
+        if (freeFlowEntryIdMap.containsKey(deviceId)) {
+            //TODO nothing
+        } else {
+
+            List<Integer> ids = new ArrayList<>();
+            Map<FlowTableId, List<Integer>> tids = new ConcurrentHashMap<>();
+            freeFlowEntryIdMap.putIfAbsent(deviceId, tids);//initialization map all is null
+        }
     }
     //if pof switch removed all the map well be cleared
     @Override
@@ -498,6 +500,13 @@ public class NewDistributedFlowTableStore
         this.flowTableNoMap.put(deviceId, noMap);
         this.flowTableNoBaseMap.put(deviceId, noBaseMap);
         this.freeFlowTableIdListMap.put(deviceId, freeIDListMap);
+        Map<FlowTableId, Map<Integer, FlowRule>> tfs = new ConcurrentHashMap<>();//the max size of table no is 128
+        for ( byte i = 0; i< base; i++) {
+
+            Map<Integer, FlowRule>emptyTmp=new HashMap<>();
+            tfs.putIfAbsent(new FlowTableId(i),emptyTmp);
+        }
+        flowEntries.putIfAbsent(deviceId, tfs);
     }
 
     @Override
