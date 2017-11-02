@@ -1,0 +1,440 @@
+<!--
+  ~  Copyright 2016-present Open Networking Laboratory
+  ~
+  ~  Licensed under the Apache License, Version 2.0 (the "License");
+  ~  you may not use this file except in compliance with the License.
+  ~  You may obtain a copy of the License at
+  ~
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~  Unless required by applicable law or agreed to in writing, software
+  ~  distributed under the License is distributed on an "AS IS" BASIS,
+  ~  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~  See the License for the specific language governing permissions and
+  ~  limitations under the License.
+  -->
+<scenario name="net-setup-vnet-of-45" description="Network (vnets) setup steps">
+    <group name="Setup-Vnet">
+
+        <step name="Get-TenantId" unless="${tenantId}"
+              exec="echo @stc tenantId=TestTenant"/>
+
+        <step name="Create-Tenant" requires="~Get-TenantId"
+              exec="onos ${OCI} vnet-add-tenant ${tenantId}"/>
+
+        <step name="Query-Tenant" requires="^"
+              exec="onos-check-vnet ${OCI} checkTenant ${tenantId}"/>
+
+        <step name="Create-Vnet" requires="^"
+              exec="onos ${OCI} vnet-create ${tenantId}"/>
+
+        <step name="Query-Vnet" requires="^"
+              exec="onos-check-vnet ${OCI} getNetworkId ${tenantId}"/>
+
+        <step name="Create-Device-1" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device1"/>
+
+        <step name="Create-Device-2" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device2"/>
+
+        <step name="Create-Device-3" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device3"/>
+
+        <step name="Create-Device-4" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device4"/>
+
+        <step name="Create-Device-5" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device5"/>
+
+        <step name="Create-Device-6" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device6"/>
+
+        <step name="Create-Device-7" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device7"/>
+
+        <step name="Create-Device-8" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device8"/>
+
+        <step name="Create-Device-9" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device9"/>
+
+        <step name="Create-Device-10" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device10"/>
+
+        <step name="Create-Device-11" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device11"/>
+
+        <step name="Create-Device-12" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device12"/>
+
+        <step name="Create-Device-13" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device13"/>
+
+        <step name="Create-Device-14" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device14"/>
+
+        <step name="Create-Device-15" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device15"/>
+
+        <step name="Create-Device-16" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device16"/>
+
+        <step name="Create-Device-17" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device17"/>
+
+        <step name="Create-Device-18" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device18"/>
+
+        <step name="Create-Device-19" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device19"/>
+
+        <step name="Create-Device-20" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device20"/>
+
+        <step name="Create-Device-21" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device21"/>
+
+        <step name="Create-Device-22" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device22"/>
+
+        <step name="Create-Device-23" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device23"/>
+
+        <step name="Create-Device-24" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device24"/>
+
+        <step name="Create-Device-25" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device25"/>
+
+        <step name="Create-Device-26" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device26"/>
+
+        <step name="Create-Device-27" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device27"/>
+
+        <step name="Create-Device-28" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device28"/>
+
+        <step name="Create-Device-29" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device29"/>
+
+        <step name="Create-Device-30" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device30"/>
+
+        <step name="Create-Device-31" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device31"/>
+
+        <step name="Create-Device-32" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device32"/>
+
+        <step name="Create-Device-33" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device33"/>
+
+        <step name="Create-Device-34" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device34"/>
+
+        <step name="Create-Device-35" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device35"/>
+
+        <step name="Create-Device-36" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device36"/>
+
+        <step name="Create-Device-37" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device37"/>
+
+        <step name="Create-Device-38" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device38"/>
+
+        <step name="Create-Device-39" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device39"/>
+
+        <step name="Create-Device-40" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device40"/>
+
+        <step name="Create-Device-41" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device41"/>
+
+        <step name="Create-Device-42" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device42"/>
+
+        <step name="Create-Device-43" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device43"/>
+
+        <step name="Create-Device-44" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device44"/>
+
+        <step name="Create-Device-45" requires="^"
+              exec="onos ${OCI} vnet-create-device ${networkId} device45"/>
+
+        <step name="Create-Port-1-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device1 1 of:0000000000000001 1"/>
+
+        <step name="Create-Port-1-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device1 2 of:0000000000000001 2"/>
+
+        <step name="Create-Port-2-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device2 1 of:0000000000000002 1"/>
+
+        <step name="Create-Port-2-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device2 2 of:0000000000000002 2"/>
+
+        <step name="Create-Port-3-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device3 1 of:0000000000000003 1"/>
+
+        <step name="Create-Port-3-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device3 2 of:0000000000000003 2"/>
+
+        <step name="Create-Port-4-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device4 1 of:0000000000000004 1"/>
+
+        <step name="Create-Port-4-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device4 2 of:0000000000000004 2"/>
+
+        <step name="Create-Port-5-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device5 1 of:0000000000000005 1"/>
+
+        <step name="Create-Port-5-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device5 2 of:0000000000000005 2"/>
+
+        <step name="Create-Port-6-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device6 1 of:0000000000000006 1"/>
+
+        <step name="Create-Port-6-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device6 2 of:0000000000000006 2"/>
+
+        <step name="Create-Port-7-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device7 1 of:0000000000000007 1"/>
+
+        <step name="Create-Port-7-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device7 2 of:0000000000000007 2"/>
+
+        <step name="Create-Port-8-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device8 1 of:0000000000000008 1"/>
+
+        <step name="Create-Port-8-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device8 2 of:0000000000000008 2"/>
+
+        <step name="Create-Port-9-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device9 1 of:0000000000000009 1"/>
+
+        <step name="Create-Port-9-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device9 2 of:0000000000000009 2"/>
+
+        <step name="Create-Port-10-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device10 1 of:000000000000000a 1"/>
+
+        <step name="Create-Port-10-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device10 2 of:000000000000000a 2"/>
+
+        <step name="Create-Port-11-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device11 1 of:000000000000000b 1"/>
+
+        <step name="Create-Port-11-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device11 2 of:000000000000000b 2"/>
+
+        <step name="Create-Port-12-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device12 1 of:000000000000000c 1"/>
+
+        <step name="Create-Port-12-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device12 2 of:000000000000000c 2"/>
+
+        <step name="Create-Port-13-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device13 1 of:000000000000000d 1"/>
+
+        <step name="Create-Port-13-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device13 2 of:000000000000000d 2"/>
+
+        <step name="Create-Port-14-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device14 1 of:000000000000000e 1"/>
+
+        <step name="Create-Port-14-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device14 2 of:000000000000000e 2"/>
+
+        <step name="Create-Port-15-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device15 1 of:000000000000000f 1"/>
+
+        <step name="Create-Port-15-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device15 2 of:000000000000000f 2"/>
+
+        <step name="Create-Port-16-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device16 1 of:0000000000000010 1"/>
+
+        <step name="Create-Port-16-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device16 2 of:0000000000000010 2"/>
+
+        <step name="Create-Port-17-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device17 1 of:0000000000000011 1"/>
+
+        <step name="Create-Port-17-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device17 2 of:0000000000000011 2"/>
+
+        <step name="Create-Port-18-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device18 1 of:0000000000000012 1"/>
+
+        <step name="Create-Port-18-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device18 2 of:0000000000000012 2"/>
+
+        <step name="Create-Port-19-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device19 1 of:0000000000000013 1"/>
+
+        <step name="Create-Port-19-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device19 2 of:0000000000000013 2"/>
+
+        <step name="Create-Port-20-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device20 1 of:0000000000000014 1"/>
+
+        <step name="Create-Port-20-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device20 2 of:0000000000000014 2"/>
+
+        <step name="Create-Port-21-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device21 1 of:0000000000000015 1"/>
+
+        <step name="Create-Port-21-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device21 2 of:0000000000000015 2"/>
+
+        <step name="Create-Port-22-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device22 1 of:0000000000000016 1"/>
+
+        <step name="Create-Port-22-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device22 2 of:0000000000000016 2"/>
+
+        <step name="Create-Port-23-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device23 1 of:0000000000000017 1"/>
+
+        <step name="Create-Port-23-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device23 2 of:0000000000000017 2"/>
+
+        <step name="Create-Port-24-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device24 1 of:0000000000000018 1"/>
+
+        <step name="Create-Port-24-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device24 2 of:0000000000000018 2"/>
+
+        <step name="Create-Port-25-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device25 1 of:0000000000000019 1"/>
+
+        <step name="Create-Port-25-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device25 2 of:0000000000000019 2"/>
+
+        <step name="Create-Port-26-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device26 1 of:000000000000001a 1"/>
+
+        <step name="Create-Port-26-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device26 2 of:000000000000001a 2"/>
+
+        <step name="Create-Port-27-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device27 1 of:000000000000001b 1"/>
+
+        <step name="Create-Port-27-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device27 2 of:000000000000001b 2"/>
+
+        <step name="Create-Port-28-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device28 1 of:000000000000001c 1"/>
+
+        <step name="Create-Port-28-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device28 2 of:000000000000001c 2"/>
+
+        <step name="Create-Port-29-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device29 1 of:000000000000001d 1"/>
+
+        <step name="Create-Port-29-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device29 2 of:000000000000001d 2"/>
+
+        <step name="Create-Port-30-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device30 1 of:000000000000001e 1"/>
+
+        <step name="Create-Port-30-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device30 2 of:000000000000001e 2"/>
+
+        <step name="Create-Port-31-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device31 1 of:000000000000001f 1"/>
+
+        <step name="Create-Port-31-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device31 2 of:000000000000001f 2"/>
+
+        <step name="Create-Port-32-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device32 1 of:0000000000000020 1"/>
+
+        <step name="Create-Port-32-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device32 2 of:0000000000000020 2"/>
+
+        <step name="Create-Port-33-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device33 1 of:0000000000000021 1"/>
+
+        <step name="Create-Port-33-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device33 2 of:0000000000000021 2"/>
+
+        <step name="Create-Port-34-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device34 1 of:0000000000000022 1"/>
+
+        <step name="Create-Port-34-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device34 2 of:0000000000000022 2"/>
+
+        <step name="Create-Port-35-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device35 1 of:0000000000000023 1"/>
+
+        <step name="Create-Port-35-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device35 2 of:0000000000000023 2"/>
+
+        <step name="Create-Port-36-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device36 1 of:0000000000000024 1"/>
+
+        <step name="Create-Port-36-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device36 2 of:0000000000000024 2"/>
+
+        <step name="Create-Port-37-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device37 1 of:0000000000000025 1"/>
+
+        <step name="Create-Port-37-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device37 2 of:0000000000000025 2"/>
+
+        <step name="Create-Port-38-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device38 1 of:0000000000000026 1"/>
+
+        <step name="Create-Port-38-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device38 2 of:0000000000000026 2"/>
+
+        <step name="Create-Port-39-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device39 1 of:0000000000000027 1"/>
+
+        <step name="Create-Port-39-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device39 2 of:0000000000000027 2"/>
+
+        <step name="Create-Port-40-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device40 1 of:0000000000000028 1"/>
+
+        <step name="Create-Port-40-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device40 2 of:0000000000000028 2"/>
+
+        <step name="Create-Port-41-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device41 1 of:0000000000000029 1"/>
+
+        <step name="Create-Port-41-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device41 2 of:0000000000000029 2"/>
+
+        <step name="Create-Port-42-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device42 1 of:000000000000002a 1"/>
+
+        <step name="Create-Port-42-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device42 2 of:000000000000002a 2"/>
+
+        <step name="Create-Port-43-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device43 1 of:000000000000002b 1"/>
+
+        <step name="Create-Port-43-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device43 2 of:000000000000002b 2"/>
+
+        <step name="Create-Port-44-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device44 1 of:000000000000002c 1"/>
+
+        <step name="Create-Port-44-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device44 2 of:000000000000002c 2"/>
+
+        <step name="Create-Port-45-1" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device45 1 of:000000000000002d 1"/>
+
+        <step name="Create-Port-45-2" requires="^"
+              exec="onos ${OCI} vnet-create-port ${networkId} device45 2 of:000000000000002d 2"/>
+
+    </group>
+</scenario>
