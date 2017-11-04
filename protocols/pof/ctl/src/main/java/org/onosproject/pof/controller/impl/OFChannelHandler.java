@@ -25,6 +25,7 @@ import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.handler.timeout.IdleStateAwareChannelHandler;
 import org.jboss.netty.handler.timeout.IdleStateEvent;
 import org.jboss.netty.handler.timeout.ReadTimeoutException;
+import org.onlab.packet.IpAddress;
 import org.onosproject.floodlightpof.protocol.OFBarrierReply;
 import org.onosproject.floodlightpof.protocol.OFEchoReply;
 import org.onosproject.floodlightpof.protocol.OFEchoRequest;
@@ -54,12 +55,24 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.nio.channels.ClosedChannelException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
+
+import static org.onlab.util.Tools.groupedThreads;
 
 /**
  * Channel handler deals with the switch connection and dispatches
@@ -75,6 +88,7 @@ class OFChannelHandler extends IdleStateAwareChannelHandler {
     private BasicFactory factory;
     private long thisdpid; // channelHandler cached value of connected switch id
     private Channel channel;
+    private String channelId;
     // State needs to be volatile because the HandshakeTimeoutHandler
     // needs to check if the handshake is complete
     private volatile ChannelState state;
@@ -99,6 +113,35 @@ class OFChannelHandler extends IdleStateAwareChannelHandler {
      * We will count down
      */
     private int handshakeTransactionIds = -1;
+
+    private static final int MSG_READ_BUFFER = 5000;
+
+    /**
+     * OFMessage dispatch queue.
+     */
+    private final BlockingQueue<OFMessage> dispatchQueue =
+            new LinkedBlockingQueue<>(MSG_READ_BUFFER);
+
+    /**
+     * Single thread executor for OFMessage dispatching.
+     *
+     * Gets initialized on channelActive, shutdown on channelInactive.
+     */
+    private ExecutorService dispatcher;
+
+    /**
+     * Handle for dispatcher thread.
+     * <p>
+     * Should only be touched from the Channel I/O thread
+     */
+    private Future<?> dispatcherHandle = CompletableFuture.completedFuture(null);
+
+    /**
+     * Dispatch backlog.
+     * <p>
+     * Should only be touched from the Channel I/O thread
+     */
+    private final Deque<OFMessage> dispatchBacklog = new ArrayDeque<>();
 
     /**
      * Create a new unconnected OFChannelHandler.
@@ -992,6 +1035,22 @@ class OFChannelHandler extends IdleStateAwareChannelHandler {
         channel = e.getChannel();
         log.info("New switch connection from {}",
                 channel.getRemoteAddress());
+
+        SocketAddress address = channel.getRemoteAddress();
+        if (address instanceof InetSocketAddress) {
+            final InetSocketAddress inetAddress = (InetSocketAddress) address;
+            final IpAddress ipAddress = IpAddress.valueOf(inetAddress.getAddress());
+            if (ipAddress.isIp4()) {
+                channelId = ipAddress.toString() + ':' + inetAddress.getPort();
+            } else {
+                channelId = '[' + ipAddress.toString() + "]:" + inetAddress.getPort();
+            }
+        } else {
+            channelId = channel.toString();
+        }
+
+        dispatcher = Executors.newSingleThreadExecutor(groupedThreads("onos/of/dispatcher", channelId, log));
+
         setState(ChannelState.WAIT_HELLO);
     }
 
@@ -1000,6 +1059,11 @@ class OFChannelHandler extends IdleStateAwareChannelHandler {
             ChannelStateEvent e) throws Exception {
         log.info("Switch disconnected callback for sw:{}. Cleaning up ...",
                 getSwitchInfoString());
+
+        if (dispatcher != null) {
+            dispatcher.shutdownNow();
+        }
+
         if (thisdpid != 0) {
             if (!duplicateDpidFound) {
                 // if the disconnected switch (on this ChannelHandler)
@@ -1113,7 +1177,67 @@ class OFChannelHandler extends IdleStateAwareChannelHandler {
     }
 
     private void dispatchMessage(OFMessage m) {
-        sw.handleMessage(m);
+
+        if (dispatchBacklog.isEmpty()) {
+            if (!dispatchQueue.offer(m)) {
+                // queue full
+                channel.setReadable(false);
+                // put it on the head of backlog
+                dispatchBacklog.addFirst(m);
+                return;
+            }
+        } else {
+            dispatchBacklog.addLast(m);
+        }
+
+        while (!dispatchBacklog.isEmpty()) {
+            OFMessage msg = dispatchBacklog.pop();
+
+            if (!dispatchQueue.offer(msg)) {
+                // queue full
+                channel.setReadable(false);
+                // put it back to the head of backlog
+                dispatchBacklog.addFirst(msg);
+                return;
+            }
+        }
+
+
+        if (dispatcherHandle.isDone()) {
+            // dispatcher terminated for some reason, restart
+
+            dispatcherHandle = dispatcher.submit(() -> {
+                try {
+                    List<OFMessage> msgs = new ArrayList<>();
+                    for (;;) {
+                        // wait for new message
+                        OFMessage msg = dispatchQueue.take();
+                        sw.handleMessage(msg);
+
+                        while (dispatchQueue.drainTo(msgs, MSG_READ_BUFFER) > 0) {
+                            if (!channel.isReadable()) {
+                                channel.setReadable(true);
+                            }
+                            msgs.forEach(sw::handleMessage);
+                            msgs.clear();
+                        }
+
+                        if (!channel.isReadable()) {
+                            channel.setReadable(true);
+                        }
+
+                        if (Thread.currentThread().isInterrupted()) {
+                            return;
+                        }
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    // interrupted. gracefully shutting down
+                    return;
+                }
+
+            });
+        }
     }
 
     /**
