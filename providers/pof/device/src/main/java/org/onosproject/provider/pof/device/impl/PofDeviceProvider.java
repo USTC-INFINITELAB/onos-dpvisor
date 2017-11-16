@@ -26,6 +26,7 @@ import org.apache.felix.scr.annotations.Property;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.onlab.packet.ChassisId;
+import org.onlab.util.HexString;
 import org.onosproject.floodlightpof.protocol.OFError;
 import org.onosproject.floodlightpof.protocol.OFMessage;
 import org.onosproject.floodlightpof.protocol.OFPhysicalPort;
@@ -504,7 +505,8 @@ public class PofDeviceProvider extends AbstractProvider implements DeviceProvide
                     !(port.getState() == OFPhysicalPort.OFPortState.OFPPS_LINK_DOWN.getValue())
                             && !(port.getConfig() == OFPhysicalPort.OFPortConfig.OFPPC_PORT_DOWN.getValue());
             Port.Type type = Port.Type.PACKET;
-            SparseAnnotations annotations = makePortAnnotation(port.getName(), port.getHardwareAddress().toString());
+            byte [] hardwareAddress=port.getHardwareAddress();
+            SparseAnnotations annotations = makePortAnnotation(port.getName(), HexString.toHexString(hardwareAddress));
             return new DefaultPortDescription(portNo, enabled, type,
                     portSpeed(port), annotations);
         }
@@ -517,8 +519,8 @@ public class PofDeviceProvider extends AbstractProvider implements DeviceProvide
             } else {
                 PortNumber portNo = PortNumber.portNumber(port.getSlotPortId());
                 Port.Type type = Port.Type.PACKET;
-                SparseAnnotations annotations = makePortAnnotation(port.getName(), port
-                        .getHardwareAddress().toString());
+                byte [] hardwareAddress=port.getHardwareAddress();
+                SparseAnnotations annotations = makePortAnnotation(port.getName(), HexString.toHexString(hardwareAddress));
                 return new DefaultPortDescription(portNo, false, type,
                         portSpeed(port), annotations);
             }
