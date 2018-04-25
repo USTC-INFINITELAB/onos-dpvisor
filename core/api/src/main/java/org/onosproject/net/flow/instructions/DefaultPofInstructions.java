@@ -17,13 +17,7 @@ package org.onosproject.net.flow.instructions;
 
 import org.onosproject.floodlightpof.protocol.OFMatch20;
 import org.onosproject.floodlightpof.protocol.action.OFAction;
-import org.onosproject.floodlightpof.protocol.instruction.OFInstruction;
-import org.onosproject.floodlightpof.protocol.instruction.OFInstructionApplyActions;
-import org.onosproject.floodlightpof.protocol.instruction.OFInstructionCalculateField;
-import org.onosproject.floodlightpof.protocol.instruction.OFInstructionGotoDirectTable;
-import org.onosproject.floodlightpof.protocol.instruction.OFInstructionGotoTable;
-import org.onosproject.floodlightpof.protocol.instruction.OFInstructionWriteMetadata;
-import org.onosproject.floodlightpof.protocol.instruction.OFInstructionWriteMetadataFromPacket;
+import org.onosproject.floodlightpof.protocol.instruction.*;
 
 import java.util.List;
 import java.util.Objects;
@@ -107,6 +101,14 @@ public final class DefaultPofInstructions {
         checkNotNull(gotoTable, "gotoTable cannot be null");
 
         return new PofInstructionGotoTable(gotoTable);
+    }
+    public static PofInstruction meter(int meterId) {
+        checkNotNull(meterId, "meterId cannot be null");
+        return new PofInstructionMeter(meterId);
+    }
+    public static PofInstruction meter(OFInstructionMeter ofInstructionMeter){
+        checkNotNull(ofInstructionMeter,"pofInstructionMeter cannot be null");
+        return new PofInstructionMeter(ofInstructionMeter);
     }
 
 
@@ -377,6 +379,61 @@ public final class DefaultPofInstructions {
             }
             return false;
         }
+    }
+    /**
+     * PofInstructionMeter Instruction.
+     */
+    public static final class PofInstructionMeter implements PofInstruction {
+        private final OFInstructionMeter ofInstructionMeter;
+
+        private PofInstructionMeter(int meterId) {
+            ofInstructionMeter = new OFInstructionMeter();
+
+            ofInstructionMeter.setMeterId(meterId);
+        }
+
+        private PofInstructionMeter(OFInstructionMeter ofInstructionMeter) {
+            this.ofInstructionMeter = ofInstructionMeter;
+        }
+
+        @Override
+        public PofInstructionType pofInstructionType() {
+            return PofInstructionType.METER;
+        }
+
+        @Override
+        public OFInstruction instruction() {
+            return this.ofInstructionMeter;
+        }
+
+        @Override
+        public Instruction.Type type() {
+            return Instruction.Type.POFINSTRUCTION;
+        }
+
+        @Override
+        public String toString() {
+            return type().toString() + SEPARATOR + ofInstructionMeter.toString();
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(type().ordinal(), ofInstructionMeter);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (obj instanceof OFInstructionMeter) {
+                OFInstructionMeter that = (OFInstructionMeter) obj;
+                return Objects.equals(ofInstructionMeter.getMeterId(), that.getMeterId());
+
+            }
+            return false;
+        }
+
     }
 
     /**

@@ -1,6 +1,7 @@
 package org.onosproject.net.flow.instructions;
 
 import org.onosproject.floodlightpof.protocol.instruction.OFInstruction;
+import org.onosproject.net.meter.Meter;
 
 /**
  * Abstraction of a single POF instruction.
@@ -22,7 +23,9 @@ public interface PofInstruction extends Instruction {
 
         WRITE_METADATA,
 
-        WRITE_METADATA_FROM_PACKET
+        WRITE_METADATA_FROM_PACKET,
+
+        METER
 
         //TODO: remaining types
     }

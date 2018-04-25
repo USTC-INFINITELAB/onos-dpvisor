@@ -18,6 +18,7 @@ package org.onosproject.net.flow.criteria;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Objects;
+import org.onlab.util.HexString;
 
 /**
  * Implementation of pof criterion.
@@ -158,12 +159,17 @@ public final class PofCriterion implements Criterion {
                 ";val=" + HexString.toHex(value) +
                 ";mask=" + HexString.toHex(mask);
                 */
+
+
+
         String str = "";
         for (int i = 0; i < list.size(); i++) {
             PofCriterion criterion = (PofCriterion) list.get(i);
+            String v = HexString.toHexString(criterion.value());
+            String m = HexString.toHexString(criterion.mask());
             str += criterion.type().toString() + SEPARATOR + criterion.fieldId()
                     + SEPARATOR + criterion.offset() + "/" + criterion.length()
-                    + SEPARATOR + criterion.value().toString() + "/" + criterion.mask().toString()
+                    + SEPARATOR + v + "/" + m
                     + ";";
         }
         return str;

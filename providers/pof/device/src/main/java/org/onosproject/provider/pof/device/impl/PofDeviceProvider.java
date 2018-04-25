@@ -387,13 +387,13 @@ public class PofDeviceProvider extends AbstractProvider implements DeviceProvide
             if (providerService == null) {
                 return;
             }
-            tableStore.removeSwitchStore(deviceId(uri(dpid)));
             providerService.deviceDisconnected(deviceId(uri(dpid)));
 
             PortStatsCollector collector = collectors.remove(dpid);
             if (collector != null) {
                 collector.stop();
             }
+            tableStore.removeSwitchStore(deviceId(uri(dpid)));
         }
 
         @Override
