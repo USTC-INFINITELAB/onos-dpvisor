@@ -190,8 +190,8 @@ public final class PofCriterion implements Criterion {
             return Objects.equals(fieldId, that.fieldId) &&
                     Objects.equals(offset, that.offset) &&
                     Objects.equals(length, that.length) &&
-                    Objects.equals(value, that.value) &&
-                    Objects.equals(mask, that.mask) &&
+                    // Objects.equals(value, that.value) &&  // commented by tsf, it's false for array
+                    // Objects.equals(mask, that.mask) &&
                     Arrays.equals(value, that.value) &&
                     Arrays.equals(mask, that.mask) &&
                     Objects.equals(list, that.list) &&
