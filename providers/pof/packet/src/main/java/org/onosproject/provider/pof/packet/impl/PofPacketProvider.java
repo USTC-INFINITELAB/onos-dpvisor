@@ -144,7 +144,7 @@ public class PofPacketProvider extends AbstractProvider implements PacketProvide
         pktout.setLength((short) 2360);
         pktout.setType(OFType.PACKET_OUT);
         pktout.setBufferId(-1);
-        pktout.setInPort(65535)
+        pktout.setInPort(0xfffd) /* tsf: send to controller: OFPP_CONTROLLER=0xfffd, defined in ovs. */
                 .setActionFactory(sw.factory());
         pktout.setActionsLength((short) actionList.size());
         pktout.setActions(actionList);

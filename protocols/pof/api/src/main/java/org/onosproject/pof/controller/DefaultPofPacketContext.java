@@ -19,6 +19,7 @@ import org.onlab.packet.DeserializationException;
 import org.onlab.packet.Ethernet;
 import org.onosproject.floodlightpof.protocol.OFPacketIn;
 import org.onosproject.floodlightpof.protocol.OFPacketOut;
+import org.onosproject.floodlightpof.protocol.OFPort;
 import org.onosproject.floodlightpof.protocol.OFType;
 import org.onosproject.floodlightpof.protocol.action.OFAction;
 import org.onosproject.floodlightpof.protocol.action.OFActionOutput;
@@ -50,7 +51,7 @@ public final class DefaultPofPacketContext implements PofPacketContext {
     private final boolean isBuffered;
 
     private static final Logger log = LoggerFactory.getLogger(DefaultPofPacketContext.class);
-
+    private static final short OFPP_CONTROLLER = (short) 0xfffd;
 
     private DefaultPofPacketContext(PofSwitch s, OFPacketIn pkt) {
         this.sw = s;
@@ -76,7 +77,7 @@ public final class DefaultPofPacketContext implements PofPacketContext {
         pktout.setLength((short) 2360);
         pktout.setType(OFType.PACKET_OUT);
         pktout.setBufferId(-1);
-        pktout.setInPort(65535)
+        pktout.setInPort(OFPP_CONTROLLER)   /* tsf: send to controller: 0xfffd, defined in ovs. */
                 .setActionFactory(sw.factory());
         pktout.setActionsLength((short) actionList.size());
         pktout.setActions(actionList);
@@ -93,7 +94,7 @@ public final class DefaultPofPacketContext implements PofPacketContext {
         pktout.setLength((short) 2360);
         pktout.setType(OFType.PACKET_OUT);
         pktout.setBufferId(-1);
-        pktout.setInPort(65535)
+        pktout.setInPort(OFPP_CONTROLLER)
         .setActionFactory(sw.factory());
         pktout.setActionsLength((short) actionList.size());
         pktout.setActions(actionList);
