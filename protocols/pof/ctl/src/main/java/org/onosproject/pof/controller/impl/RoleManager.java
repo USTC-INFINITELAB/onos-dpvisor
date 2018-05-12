@@ -82,7 +82,7 @@ class RoleManager implements RoleHandler {
 
         OFRoleRequest rrm = new OFRoleRequest();
         rrm.setOfControllerRole(roleToSend);
-        sw.sendRoleRequest(rrm);
+        sw.sendRoleRequest(rrm);    // comment this to not to send roleRequest msg
         int xid = rrm.getXid();
         log.info("OFRoleRequest {}", rrm.toString());
         return xid;
