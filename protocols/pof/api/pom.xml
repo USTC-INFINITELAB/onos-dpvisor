@@ -5,7 +5,7 @@
     <parent>
         <artifactId>onos-pof</artifactId>
         <groupId>org.onosproject</groupId>
-        <version>1.10.0-SNAPSHOT</version>
+        <version>1.11.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
@@ -33,7 +33,7 @@
             <artifactId>onos-api</artifactId>
             <scope>test</scope>
             <classifier>tests</classifier>
-            <version>${project.version}</version>
+            <version>1.11.0-SNAPSHOT</version>
         </dependency>
     </dependencies>
 
