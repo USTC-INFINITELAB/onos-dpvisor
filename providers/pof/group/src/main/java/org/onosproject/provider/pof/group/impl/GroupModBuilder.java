@@ -127,7 +127,7 @@ public class GroupModBuilder {
         ofGroupMod.setSlotId((byte)0);
         ofGroupMod.setGroupId(groupId.id());
 
-        ofGroupMod.setGroupType((byte) type.ordinal());
+        ofGroupMod.setGroupType((byte) (getPOFGroupType(type).ordinal()));
 
         return ofGroupMod;
     }
@@ -153,7 +153,7 @@ public class GroupModBuilder {
         ofGroupMod.setSlotId((byte)0);
         ofGroupMod.setGroupId(groupId.id());
 
-        ofGroupMod.setGroupType((byte) type.ordinal());
+        ofGroupMod.setGroupType((byte) (getPOFGroupType(type).ordinal()));
 
         return ofGroupMod;
     }
@@ -240,5 +240,23 @@ public class GroupModBuilder {
         short actionNum = (short) actionList.size();
         return new OFBucket(actionNum, weight, watchSlotId, watchPort, watchGroup, actionList);
     }
+
+    private OFGroupMod.OFGroupType getPOFGroupType(GroupDescription.Type groupType) {
+        switch (groupType) {
+            case INDIRECT:
+                return OFGroupMod.OFGroupType.OFPGT_INDIRECT;
+            case SELECT:
+                return OFGroupMod.OFGroupType.OFPGT_SELECT;
+            case FAILOVER:
+                return OFGroupMod.OFGroupType.OFPGT_FF;
+            case ALL:
+                return OFGroupMod.OFGroupType.OFPGT_ALL;
+            default:
+                log.error("Unsupported group type : {}", groupType);
+                break;
+        }
+        return null;
+    }
+
 
 }

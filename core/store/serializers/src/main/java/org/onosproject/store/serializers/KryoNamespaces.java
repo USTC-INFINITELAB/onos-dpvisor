@@ -51,6 +51,8 @@ import org.onosproject.core.DefaultApplicationId;
 import org.onosproject.core.GroupId;
 import org.onosproject.core.Version;
 import org.onosproject.event.Change;
+import org.onosproject.floodlightpof.protocol.OFMatchX;
+import org.onosproject.floodlightpof.protocol.action.*;
 import org.onosproject.incubator.net.domain.IntentDomainId;
 import org.onosproject.mastership.MastershipTerm;
 import org.onosproject.net.Annotations;
@@ -227,15 +229,7 @@ import org.onosproject.net.flow.instructions.DefaultPofActions;
 import org.onosproject.net.flow.instructions.DefaultPofInstructions;
 import org.onosproject.floodlightpof.protocol.instruction.OFInstructionApplyActions;
 import org.onosproject.floodlightpof.protocol.instruction.OFInstructionGotoTable;
-import org.onosproject.floodlightpof.protocol.action.OFAction;
-import org.onosproject.floodlightpof.protocol.action.OFActionOutput;
-import org.onosproject.floodlightpof.protocol.action.OFActionType;
 import org.onosproject.floodlightpof.protocol.instruction.OFInstructionType;
-import org.onosproject.floodlightpof.protocol.action.OFActionAddField;
-import org.onosproject.floodlightpof.protocol.action.OFActionDeleteField;
-import org.onosproject.floodlightpof.protocol.action.OFActionPacketIn;
-import org.onosproject.floodlightpof.protocol.action.OFActionCounter;
-import org.onosproject.floodlightpof.protocol.action.OFActionDrop;
 
 import java.net.URI;
 import java.time.Duration;
@@ -610,6 +604,8 @@ public final class KryoNamespaces {
             .register(OFActionOutput.class)
             .register(OFActionAddField.class)
             .register(OFActionDeleteField.class)
+            .register(OFActionSetField.class)
+            .register(OFMatchX.class)
             .register(OFActionPacketIn.class)
             .register(OFActionDrop.class)
             .register(OFActionCounter.class)
