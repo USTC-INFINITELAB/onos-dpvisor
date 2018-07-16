@@ -1,0 +1,11 @@
+COMPILE_DEPS = [
+    '//lib:CORE_DEPS',
+    '//lib:floodlightpof',
+    '//protocols/pof/api:onos-protocols-pof-api',
+    '//providers/pof/flow:onos-providers-pof-flow',
+    '//lib:NETTY',
+]
+
+osgi_jar_with_tests (
+    deps = COMPILE_DEPS,
+)

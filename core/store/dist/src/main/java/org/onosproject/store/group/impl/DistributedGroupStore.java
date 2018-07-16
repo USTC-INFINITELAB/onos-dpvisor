@@ -171,6 +171,7 @@ public class DistributedGroupStore
         cfgService.registerProperties(getClass());
         KryoNamespace.Builder kryoBuilder = new KryoNamespace.Builder()
                 .register(KryoNamespaces.API)
+                .register(KryoNamespaces.POF)
                 .nextId(KryoNamespaces.BEGIN_USER_CUSTOM_ID)
                 .register(DefaultGroup.class,
                           DefaultGroupBucket.class,
@@ -511,20 +512,25 @@ public class DistributedGroupStore
             return;
         }
 
-        if (deviceAuditStatus.get(groupDesc.deviceId()) == null) {
-            // Device group audit has not completed yet
-            // Add this group description to pending group key table
-            // Create a group entry object with Dummy Group ID
-            log.debug("storeGroupDescriptionInternal: Device {} AUDIT pending...Queuing Group ADD request",
-                      groupDesc.deviceId());
-            StoredGroupEntry group = new DefaultGroup(dummyGroupId, groupDesc);
-            group.setState(GroupState.WAITING_AUDIT_COMPLETE);
-            Map<GroupStoreKeyMapKey, StoredGroupEntry> pendingKeyTable =
-                    getPendingGroupKeyTable();
-            pendingKeyTable.put(new GroupStoreKeyMapKey(groupDesc.deviceId(),
-                                                        groupDesc.appCookie()),
-                                group);
-            return;
+        DeviceId deviceId = groupDesc.deviceId();
+        if (!deviceId.uri().getScheme().equals("pof")) {
+
+            if (deviceAuditStatus.get(groupDesc.deviceId()) == null) {
+
+                // Device group audit has not completed yet
+                // Add this group description to pending group key table
+                // Create a group entry object with Dummy Group ID
+                log.debug("storeGroupDescriptionInternal: Device {} AUDIT pending...Queuing Group ADD request",
+                        groupDesc.deviceId());
+                StoredGroupEntry group = new DefaultGroup(dummyGroupId, groupDesc);
+                group.setState(GroupState.WAITING_AUDIT_COMPLETE);
+                Map<GroupStoreKeyMapKey, StoredGroupEntry> pendingKeyTable =
+                        getPendingGroupKeyTable();
+                pendingKeyTable.put(new GroupStoreKeyMapKey(groupDesc.deviceId(),
+                                groupDesc.appCookie()),
+                        group);
+                return;
+            }
         }
 
         Group matchingExtraneousGroup = null;

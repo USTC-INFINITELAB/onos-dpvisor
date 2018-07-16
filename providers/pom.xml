@@ -58,6 +58,12 @@
     </modules>
 
     <dependencies>
+
+        <dependency>
+            <groupId>org.onosproject</groupId>
+            <artifactId>onos-pof-api</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.onosproject</groupId>
             <artifactId>onos-api</artifactId>
@@ -65,6 +71,11 @@
         <dependency>
             <groupId>org.onosproject</groupId>
             <artifactId>onos-incubator-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.onosproject</groupId>
+            <artifactId>onos-protocols</artifactId>
         </dependency>
 
         <dependency>

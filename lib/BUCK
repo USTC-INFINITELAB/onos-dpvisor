@@ -122,6 +122,15 @@ osgi_feature_group(
 )
 
 osgi_feature_group(
+  name = 'NETTY',
+  visibility = ['PUBLIC'],
+  exported_deps = [
+    ':netty-buffer',
+    ':netty-common',
+  ],
+)
+
+osgi_feature_group(
   name = 'GRPC_1.3',
   visibility = ['PUBLIC'],
   exported_deps = [
@@ -896,7 +905,7 @@ remote_jar (
   visibility = [ 'PUBLIC' ],
 )
 
-# comment here to test with prebuilt_jar
+# tsf: comment here to test with prebuilt_jar
 # remote_jar (
 #   name = 'floodlightpof',
 #   out = 'floodlightpof-1.0.3.onos.jar',
