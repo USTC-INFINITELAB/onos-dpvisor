@@ -750,15 +750,20 @@ public class DistributedGroupStore
                       oldGroup.id(),
                       oldGroup.deviceId(),
                       oldGroup.state());
-            if (deviceId.uri().getScheme().equals("pof")) {
-                newGroup.setState(GroupState.POFUPDATED);
-                removeGroupEntry(oldGroup);
-            } else {
-                newGroup.setState(GroupState.PENDING_UPDATE);
-            }
+
             newGroup.setLife(oldGroup.life());
             newGroup.setPackets(oldGroup.packets());
             newGroup.setBytes(oldGroup.bytes());
+
+            if (deviceId.uri().getScheme().equals("pof")) {
+                synchronized (oldGroup) {
+                    newGroup.setState(GroupState.POFUPDATED);
+                    removeGroupEntry(oldGroup);
+                }
+            } else {
+                newGroup.setState(GroupState.PENDING_UPDATE);
+            }
+
             //Update the group entry in groupkey based map.
             //Update to groupid based map will happen in the
             //groupkey based map update listener
