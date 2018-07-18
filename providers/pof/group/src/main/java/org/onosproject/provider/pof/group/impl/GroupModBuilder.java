@@ -180,7 +180,7 @@ public class GroupModBuilder {
         ofGroupMod.setSlotId((byte)0);
         ofGroupMod.setGroupId(groupId.id());
 
-        ofGroupMod.setGroupType((byte) type.ordinal());
+        ofGroupMod.setGroupType((byte) (getPOFGroupType(type).ordinal()));
 
         return ofGroupMod;
     }

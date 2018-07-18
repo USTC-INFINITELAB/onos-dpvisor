@@ -752,6 +752,7 @@ public class DistributedGroupStore
                       oldGroup.state());
             if (deviceId.uri().getScheme().equals("pof")) {
                 newGroup.setState(GroupState.POFUPDATED);
+                removeGroupEntry(oldGroup);
             } else {
                 newGroup.setState(GroupState.PENDING_UPDATE);
             }
