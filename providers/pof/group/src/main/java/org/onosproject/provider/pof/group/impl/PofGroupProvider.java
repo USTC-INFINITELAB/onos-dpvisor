@@ -180,8 +180,8 @@ public class PofGroupProvider extends AbstractProvider implements GroupProvider 
             log.info("The groupMod : {}",groupMod.toString());
             sw.sendMsg(groupMod);
             GroupId groudId = new GroupId(groupMod.getGroupId());
-            pendingGroupOperations.put(groudId, groupOperation);
-            pendingXidMaps.put(groudId, groupModXid);
+//            pendingGroupOperations.put(groudId, groupOperation);
+//            pendingXidMaps.put(groudId, groupModXid);
         }
     }
     private class InternalGroupProvider

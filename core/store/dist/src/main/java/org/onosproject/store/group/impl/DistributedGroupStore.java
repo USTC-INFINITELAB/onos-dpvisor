@@ -643,6 +643,9 @@ public class DistributedGroupStore
         // Create a group entry object
         StoredGroupEntry group = new DefaultGroup(id, groupDesc);
         // Insert the newly created group entry into key and id maps
+        if (deviceId.uri().getScheme().equals("pof")) {
+            group.setState(GroupState.POFADDED);
+        }
         getGroupStoreKeyMap().
                 put(new GroupStoreKeyMapKey(groupDesc.deviceId(),
                                             groupDesc.appCookie()), group);
@@ -747,7 +750,11 @@ public class DistributedGroupStore
                       oldGroup.id(),
                       oldGroup.deviceId(),
                       oldGroup.state());
-            newGroup.setState(GroupState.PENDING_UPDATE);
+            if (deviceId.uri().getScheme().equals("pof")) {
+                newGroup.setState(GroupState.POFUPDATED);
+            } else {
+                newGroup.setState(GroupState.PENDING_UPDATE);
+            }
             newGroup.setLife(oldGroup.life());
             newGroup.setPackets(oldGroup.packets());
             newGroup.setBytes(oldGroup.bytes());
@@ -877,11 +884,18 @@ public class DistributedGroupStore
                   existing.id(),
                   existing.deviceId(),
                   existing.state());
-        synchronized (existing) {
-            existing.setState(GroupState.PENDING_DELETE);
-            getGroupStoreKeyMap().
-                    put(new GroupStoreKeyMapKey(existing.deviceId(), existing.appCookie()),
-                        existing);
+        if (deviceId.uri().getScheme().equals("pof")) {
+            synchronized (existing) {
+                existing.setState(GroupState.POFDELETED);
+                removeGroupEntry(existing);
+            }
+        } else {
+            synchronized (existing) {
+                existing.setState(GroupState.PENDING_DELETE);
+                getGroupStoreKeyMap().
+                        put(new GroupStoreKeyMapKey(existing.deviceId(), existing.appCookie()),
+                                existing);
+            }
         }
         log.debug("deleteGroupDescriptionInternal: in device {} issuing GROUP_REMOVE_REQUESTED",
                   deviceId);

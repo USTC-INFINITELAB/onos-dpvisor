@@ -342,12 +342,23 @@ public class GroupManager
 
                 case GROUP_REMOVE_REQUESTED:
                     log.debug("GROUP_REMOVE_REQUESTED for Group {} on device {}",
-                              group.id(), group.deviceId());
-                    GroupOperation groupDeleteOp = GroupOperation.
-                            createDeleteGroupOperation(group.id(),
-                                                       group.type());
-                    groupOps = new GroupOperations(
-                            Collections.singletonList(groupDeleteOp));
+                            group.id(), group.deviceId());
+                    DeviceId deviceId = group.deviceId();
+                    if (deviceId.uri().getScheme().equals("pof")) {
+
+                        GroupOperation groupDeleteOp = GroupOperation.
+                                createDeleteGroupOperation(group.id(),
+                                        group.type(),
+                                        group.buckets());
+                        groupOps = new GroupOperations(
+                                Collections.singletonList(groupDeleteOp));
+                    } else {
+                        GroupOperation groupDeleteOp = GroupOperation.
+                                createDeleteGroupOperation(group.id(),
+                                        group.type());
+                        groupOps = new GroupOperations(
+                                Collections.singletonList(groupDeleteOp));
+                    }
                     groupProvider.performGroupOperation(group.deviceId(), groupOps);
                     break;
 

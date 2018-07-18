@@ -52,7 +52,19 @@ public interface Group extends GroupDescription {
          * Group delete request is processed by ONOS and not
          * received the confirmation from data plane.
          */
-        PENDING_DELETE
+        PENDING_DELETE,
+        /**
+         * Group is created in the data plane.
+         */
+        POFADDED,
+        /**
+         * Group is deleted in the data plane.
+         */
+        POFDELETED,
+        /**
+         * Group is modified in the data plane.
+         */
+        POFUPDATED
     }
 
     /**
