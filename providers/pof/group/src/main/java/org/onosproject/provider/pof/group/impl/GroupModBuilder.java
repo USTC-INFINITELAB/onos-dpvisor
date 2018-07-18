@@ -147,7 +147,8 @@ public class GroupModBuilder {
         }
         ofGroupMod.setBucketFactory(factory);
         ofGroupMod.setBucketList(ofBucketList);
-        ofGroupMod.setBucketNum((byte) ofBucketList.size());
+//        ofGroupMod.setBucketNum((byte) ofBucketList.size());
+        ofGroupMod.setBucketNum((byte) 0x00);    // tsf: for del_group, no need to parse buckets in data plane
         ofGroupMod.setCommand(OFGroupMod.OFGroupModCmd.OFPGC_DELETE);
         ofGroupMod.setCounterId(0);
         ofGroupMod.setSlotId((byte)0);
