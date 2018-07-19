@@ -147,7 +147,6 @@ public class GroupModBuilder {
         }
         ofGroupMod.setBucketFactory(factory);
         ofGroupMod.setBucketList(ofBucketList);
-//        ofGroupMod.setBucketNum((byte) ofBucketList.size());
         ofGroupMod.setBucketNum((byte) 0x00);    // tsf: for del_group, no need to parse buckets in data plane
         ofGroupMod.setCommand(OFGroupMod.OFGroupModCmd.OFPGC_DELETE);
         ofGroupMod.setCounterId(0);
@@ -228,8 +227,8 @@ public class GroupModBuilder {
 
         short weight = groupBucket.weight();
         short watchSlotId = 0;
-        byte watchPort = 0;
-        int watchGroup = 0;
+        byte watchPort = (byte) 0xff;  // OFPP_NONE = 0xffff
+        int watchGroup = 0xffffffff;   // OFPG_ANY = 0xffffffff
         if (groupBucket.watchGroup() != null && type == GroupDescription.Type.FAILOVER) {
 
             watchPort = (byte)groupBucket.watchPort().toLong();
