@@ -51,6 +51,7 @@ import org.onosproject.core.DefaultApplicationId;
 import org.onosproject.core.GroupId;
 import org.onosproject.core.Version;
 import org.onosproject.event.Change;
+import org.onosproject.floodlightpof.protocol.OFMatch20;
 import org.onosproject.floodlightpof.protocol.OFMatchX;
 import org.onosproject.floodlightpof.protocol.action.*;
 import org.onosproject.incubator.net.domain.IntentDomainId;
@@ -605,6 +606,8 @@ public final class KryoNamespaces {
             .register(OFActionAddField.class)
             .register(OFActionDeleteField.class)
             .register(OFActionSetField.class)
+            .register(OFActionModifyField.class)
+            .register(OFMatch20.class)
             .register(OFMatchX.class)
             .register(OFActionPacketIn.class)
             .register(OFActionDrop.class)

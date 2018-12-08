@@ -125,7 +125,8 @@ public final class Dpid {
      */
     public static URI uri(long value) {
         try {
-            return new URI(SCHEME, toHex(value), null);
+//            return new URI(SCHEME, toHex(value), null);
+            return new URI(SCHEME + ":" + toHex(value));
         } catch (URISyntaxException e) {
             return null;
         }
